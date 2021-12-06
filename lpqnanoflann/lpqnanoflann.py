@@ -7,6 +7,7 @@ import nanoflann_ext
 import numpy as np
 from sklearn.neighbors._base import KNeighborsMixin, NeighborsBase, RadiusNeighborsMixin
 from sklearn.utils.validation import check_is_fitted
+from scipy.sparse import csc_matrix, csr_matrix, coo_matrix
 
 SUPPORTED_TYPES = [np.float32, np.float64]
 
@@ -86,10 +87,66 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         else:
             return self._fit_X
 
+
     def save_index(self, path: str) -> int:
         "Save index to the binary file. NOTE: Data points are NOT stored."
         return self.index.save_index(path)
 
+
+    def radius_neighbors(self, X, radius=None, return_distance=True, n_jobs=1, return_array=True):
+        check_is_fitted(self, ["_fit_X"], all_or_any=any)
+        _check_arg(X)
+
+
+        if radius is None:
+            radius = self.radius
+        elif self.metric == "l2":
+            radius = radius ** 2  # L2 nanoflann internally uses squared distances
+
+        if n_jobs == 1:
+            if return_distance:
+                self.index.radius_neighbors_idx_dists(X, radius)
+            else:
+                self.index.radius_neighbors_idx(X, radius)
+        else:
+            if return_distance:
+                self.index.radius_neighbors_idx_dists_multithreaded(X, radius, n_jobs)
+            else:
+                self.index.radius_neighbors_idx_multithreaded(X, radius, n_jobs)
+
+
+        if not return_array:
+            return
+
+        if return_distance:
+            if self.metric == "l2":
+                return self.index.getResultIndicesRow(), self.index.getResultIndicesCol(), np.sqrt(self.index.getResultDists())
+            else:
+                return self.index.getResultIndicesRow(), self.index.getResultIndicesCol(), self.index.getResultDists()
+
+        return self.index.getResultIndicesRow(), self.index.getResultIndicesCol()
+
+    # Results getter with sparse matrices
+    def get_dists(self):
+        if self.metric == "l2":
+            return np.sqrt(self.index.getResultDists())
+        else:
+            return self.index.getResultDists()
+
+    def get_rows(self):
+        return self.index.getResultIndicesRow()
+
+    def get_cols(self):
+        return self.index.getResultIndicesCol()
+
+    def get_csr_matrix(self):
+        return csr_matrix((self.get_dists(), self.get_cols(), self.index.getResultIndicesPtr()))
+
+    def get_coo_matrix(self):
+        return coo_matrix((self.get_dists(), (self.get_rows(), self.get_cols())))
+
+    def get_csc_matrix(self):
+        return self.get_coo_matrix().to_csc()
 
 # Register pickling of non-trivial types
 copyreg.pickle(KDTree, pickler, unpickler)

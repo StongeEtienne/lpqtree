@@ -4,7 +4,7 @@ import sys
 import setuptools
 import subprocess
 
-__version__ = '0.0.0a'
+__version__ = '0.0.1a1'
 
 
 class get_pybind_include(object):
