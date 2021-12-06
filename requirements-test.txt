@@ -1,0 +1,5 @@
+tabulate
+contexttimer
+codecov
+pytest==4.3.0
+pytest-cov==2.6.1

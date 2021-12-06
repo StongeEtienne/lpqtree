@@ -1,6 +1,11 @@
 BSD 2-Clause License
 
-Copyright (c) 2021, Etienne St-Onge
+Copyright 2008-2009  Marius Muja (mariusm ~at~ cs.ubc.ca). [nanoflann]
+Copyright 2008-2009  David G. Lowe (lowe ~at~ cs.ubc.ca). [nanoflann]
+Copyright 2011 Jose L. Blanco (joseluisblancoc ~at~ gmail.com). [nanoflann]
+Copyright 2019, Dmitrii Tsybulevskii (github u1234x1234). [pynanoflann]
+Copyright 2021, Etienne St-Onge (github stongeetienne). [Lpq distance]
+
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
