@@ -678,6 +678,16 @@ std::pair<pybind11::list, pybind11::list> batched_kneighbors(
 }
 
 
+
+template <typename num_t>
+class KDTreeMulti : public KDTree<num_t>{
+ public:
+  using f_numpy_array_t = pybind11::array_t<num_t, pybind11::array::c_style | pybind11::array::forcecast>;
+
+  const num_t *buf2;
+};
+
+
 PYBIND11_MODULE(nanoflann_ext, m) {
   pybind11::class_<KDTree<float>>(m, "KDTree32")
       .def(pybind11::init<size_t, size_t, std::string, float>())
