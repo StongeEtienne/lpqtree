@@ -73,7 +73,6 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         self.index.fit(X, index_path if index_path is not None else "")
         self._fit_X = X
 
-
     def get_data(self, copy: bool = True) -> np.ndarray:
         """Returns underlying data points. If copy is `False` then no modifications should be applied to the returned data.
 
@@ -87,16 +86,13 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         else:
             return self._fit_X
 
-
     def save_index(self, path: str) -> int:
         "Save index to the binary file. NOTE: Data points are NOT stored."
         return self.index.save_index(path)
 
-
     def radius_neighbors(self, X, radius=None, return_distance=True, n_jobs=1, return_array=True):
         check_is_fitted(self, ["_fit_X"], all_or_any=any)
         _check_arg(X)
-
 
         if radius is None:
             radius = self.radius
@@ -113,7 +109,6 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
                 self.index.radius_neighbors_idx_dists_multithreaded(X, radius, n_jobs)
             else:
                 self.index.radius_neighbors_idx_multithreaded(X, radius, n_jobs)
-
 
         if not return_array:
             return
@@ -147,6 +142,29 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
 
     def get_csc_matrix(self):
         return self.get_coo_matrix().to_csc()
+
+    # Advanced operation
+    def radius_neighbors_full(self, X_mpts, Data_full, X_full, radius_full, n_jobs=1):
+        nb_mpts = X_mpts.shape[1]
+        nb_dim = X_full.shape[1]
+
+        assert(X_mpts.shape[1] <= X_full.shape[1])
+
+        assert(X_full.shape[1] == Data_full.shape[1])
+        assert(X_mpts.shape[0] == X_full.shape[0])
+        assert(self.get_data(copy=False).shape[0] == Data_full.shape[0])
+        assert(nb_dim % nb_mpts == 0)
+
+        if self.metric == "l2":
+            radius_full = radius_full ** 2  # L2 nanoflann internally uses squared distances
+
+        mpts_dist = radius_full * nb_mpts / nb_dim
+
+        if n_jobs == 1:
+            self.index.radius_neighbors_idx_dists_full(X_mpts, Data_full, X_full, mpts_dist, radius_full)
+        else:
+            self.index.radius_neighbors_idx_dists_full_multithreaded(X_mpts, Data_full, X_full, mpts_dist, radius_full, n_jobs)
+
 
 # Register pickling of non-trivial types
 copyreg.pickle(KDTree, pickler, unpickler)

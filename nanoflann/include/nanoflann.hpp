@@ -75,22 +75,18 @@ namespace nanoflann {
 /** @addtogroup nanoflann_grp nanoflann C++ library for ANN
  *  @{ */
 
+ /** the PI constant (required to avoid MSVC missing symbols) */
+ template <typename T> T pi_const() {
+   return static_cast<T>(3.14159265358979323846);
+ }
 
+ template <typename T> T sqrt3inv() {
+   return static_cast<T>(0.577350269);
+ }
 
- #define M_DIM (size_t)2
-
-/** the PI constant (required to avoid MSVC missing symbols) */
-template <typename T> T pi_const() {
-  return static_cast<T>(3.14159265358979323846);
-}
-
-template <typename T> T sqrt3inv() {
-  return static_cast<T>(0.577350269);
-}
-
-template <typename T> T sqrtMinv() {
-  return static_cast<T>(1.0) / std::sqrt(static_cast<T>(M_DIM));
-}
+ // template <typename T> T sqrtMinv() {
+ //   return static_cast<T>(1.0) / std::sqrt(static_cast<T>(M_DIM));
+ // }
 
 
 /**
@@ -377,8 +373,7 @@ struct L1_Adaptor {
 
   L1_Adaptor(const DataSource &_data_source) : data_source(_data_source) {}
 
-  inline DistanceType evalMetric(const T *a, const size_t b_idx, size_t size,
-                                 DistanceType worst_dist) const {
+  inline DistanceType evalMetric(const T *a, const size_t b_idx, size_t size, DistanceType worst_dist) const {
     DistanceType result = DistanceType();
     const T *last = a + size;
     const T *lastgroup = last - 3;
@@ -436,6 +431,52 @@ struct L1_Adaptor {
   template <typename U, typename V>
   inline DistanceType accum_dist(const U a, const V b, const size_t) const {
     return std::abs(a - b);
+  }
+
+  inline DistanceType eval_pair(const T *a, const T *b, size_t size, DistanceType worst_dist) const {
+    DistanceType result = DistanceType();
+    const T *last = a + size;
+    const T *lastgroup = last - 3;
+
+    /* Process 4 items with each loop for efficiency. */
+    while (a < lastgroup) {
+      const DistanceType diff0 = std::abs(a[0] - b[0]);
+      const DistanceType diff1 = std::abs(a[1] - b[1]);
+      const DistanceType diff2 = std::abs(a[2] - b[2]);
+      const DistanceType diff3 = std::abs(a[3] - b[3]);
+      result += diff0 + diff1 + diff2 + diff3;
+      a += 4;
+      b += 4;
+      if ((worst_dist > 0) && (result > worst_dist)) {
+        return result;
+      }
+    }
+    /* Process last 0-3 components.  Not needed for standard vector lengths. */
+    while (a < last) {
+      result += std::abs(*a++ - *b++);
+    }
+    return result;
+  }
+
+  inline DistanceType eval_pair(const T *a, const T *b, size_t size) const {
+    DistanceType result = DistanceType();
+    const T *last = a + size;
+    const T *lastgroup = last - 3;
+    /* Process 4 items with each loop for efficiency. */
+    while (a < lastgroup) {
+      const DistanceType diff0 = std::abs(a[0] - b[0]);
+      const DistanceType diff1 = std::abs(a[1] - b[1]);
+      const DistanceType diff2 = std::abs(a[2] - b[2]);
+      const DistanceType diff3 = std::abs(a[3] - b[3]);
+      result += diff0 + diff1 + diff2 + diff3;
+      a += 4;
+      b += 4;
+    }
+    /* Process last 0-3 components.  Not needed for standard vector lengths. */
+    while (a < last) {
+      result += std::abs(*a++ - *b++);
+    }
+    return result;
   }
 };
 
@@ -508,6 +549,56 @@ struct L2_Adaptor {
   inline DistanceType accum_dist(const U a, const V b, const size_t) const {
     return (a - b) * (a - b);
   }
+
+
+  inline DistanceType eval_pair(const T *a, const T *b, size_t size, DistanceType worst_dist) const {
+    DistanceType result = DistanceType();
+    const T *last = a + size;
+    const T *lastgroup = last - 3;
+
+    /* Process 4 items with each loop for efficiency. */
+    while (a < lastgroup) {
+      const DistanceType diff0 = a[0] - b[0];
+      const DistanceType diff1 = a[1] - b[1];
+      const DistanceType diff2 = a[2] - b[2];
+      const DistanceType diff3 = a[3] - b[3];
+      result += diff0 * diff0 + diff1 * diff1 + diff2 * diff2 + diff3 * diff3;
+      a += 4;
+      b += 4;
+      if ((worst_dist > 0) && (result > worst_dist)) {
+        return result;
+      }
+    }
+    /* Process last 0-3 components.  Not needed for standard vector lengths. */
+    while (a < last) {
+      const DistanceType diff0 = *a++ - *b++;
+      result += diff0 * diff0;
+    }
+    return result;
+  }
+
+  inline DistanceType eval_pair(const T *a, const T *b, size_t size) const {
+    DistanceType result = DistanceType();
+    const T *last = a + size;
+    const T *lastgroup = last - 3;
+
+    /* Process 4 items with each loop for efficiency. */
+    while (a < lastgroup) {
+      const DistanceType diff0 = a[0] - b[0];
+      const DistanceType diff1 = a[1] - b[1];
+      const DistanceType diff2 = a[2] - b[2];
+      const DistanceType diff3 = a[3] - b[3];
+      result += diff0 * diff0 + diff1 * diff1 + diff2 * diff2 + diff3 * diff3;
+      a += 4;
+      b += 4;
+    }
+    /* Process last 0-3 components.  Not needed for standard vector lengths. */
+    while (a < last) {
+      const DistanceType diff0 = *a++ - *b++;
+      result += diff0 * diff0;
+    }
+    return result;
+  }
 };
 
 /** Squared Euclidean (L2) distance functor (suitable for low-dimensionality
@@ -538,6 +629,29 @@ struct L2_Simple_Adaptor {
   template <typename U, typename V>
   inline DistanceType accum_dist(const U a, const V b, const size_t) const {
     return (a - b) * (a - b);
+  }
+
+
+  inline DistanceType eval_pair(const T *a, const T *b, size_t size, DistanceType worst_dist) const {
+    DistanceType result = DistanceType();
+    for (size_t i = 0; i < size; ++i) {
+      const DistanceType diff = a[i] - b[i];
+      result += diff * diff;
+
+      if (result > worst_dist) {
+        return result;
+      }
+    }
+    return result;
+  }
+
+  inline DistanceType eval_pair(const T *a, const T *b, size_t size) const {
+    DistanceType result = DistanceType();
+    for (size_t i = 0; i < size; ++i) {
+      const DistanceType diff = a[i] - b[i];
+      result += diff * diff;
+    }
+    return result;
   }
 };
 
@@ -611,7 +725,7 @@ struct SO3_Adaptor {
  * \tparam _DistanceType Type of distance variables (must be signed)
  * (e.g. float, double, int64_t, T*)
  */
-template <class T, class DataSource, typename _DistanceType = T>
+template <class T, class DataSource, typename _DistanceType = T, size_t MDIM = 3>
 struct L21_MD_Adaptor {
   typedef T ElementType;
   typedef _DistanceType DistanceType;
@@ -626,20 +740,20 @@ struct L21_MD_Adaptor {
     DistanceType result = DistanceType();
     size_t d = 0;
 
-    // if (size%M_DIM != 0)
-    //   throw std::runtime_error("Error: 'dimensionality' must be a multiple of M_DIM");
+    // if (size%MDIM != 0)
+    //   throw std::runtime_error("Error: 'dimensionality' must be a multiple of MDIM");
 
     /* Process 4 items with each loop for efficiency. */
-    for (size_t i = 0; i < size; i += M_DIM){
+    for (size_t i = 0; i < size; i += MDIM){
       DistanceType result_m = DistanceType();
-      for (size_t m = 0; m < M_DIM; m++){
+      for (size_t m = 0; m < MDIM; m++){
         const DistanceType diff = a[d] - data_source.kdtree_get_pt(b_idx, d);
         result_m += diff*diff;
         ++d;
       }
       result += std::sqrt(result_m);
 
-      if ((worst_dist > 0) && (result > worst_dist)) {
+      if (result > worst_dist) {
         return result;
       }
     }
@@ -650,13 +764,13 @@ struct L21_MD_Adaptor {
     DistanceType result = DistanceType();
     size_t d = 0;
 
-    // if (size%M_DIM != 0)
-    //   throw std::runtime_error("Error: 'dimensionality' must be a multiple of M_DIM");
+    // if (size%MDIM != 0)
+    //   throw std::runtime_error("Error: 'dimensionality' must be a multiple of MDIM");
 
     /* Process 4 items with each loop for efficiency. */
-    for (size_t i = 0; i < size; i += M_DIM){
+    for (size_t i = 0; i < size; i += MDIM){
       DistanceType result_m = DistanceType();
-      for (size_t m = 0; m < M_DIM; m++){
+      for (size_t m = 0; m < MDIM; m++){
         const DistanceType diff = a[d] - data_source.kdtree_get_pt(b_idx, d);
         result_m += diff*diff;
         ++d;
@@ -668,7 +782,7 @@ struct L21_MD_Adaptor {
 
   template <typename U, typename V>
   inline DistanceType accum_dist(const U a, const V b, const size_t) const {
-    return std::abs(a - b) * sqrtMinv<DistanceType>();
+    return std::abs(a - b) / std::sqrt(static_cast<U>(MDIM));
   }
 };
 
@@ -690,8 +804,7 @@ struct L21_MD_Adaptor {
 
   L21_3D_Adaptor(const DataSource &_data_source) : data_source(_data_source) {}
 
-  inline DistanceType evalMetric(const T *a, const size_t b_idx, size_t size,
-                                 DistanceType worst_dist) const {
+  inline DistanceType evalMetric(const T *a, const size_t b_idx, size_t size, DistanceType worst_dist) const {
     DistanceType result = DistanceType();
     const T *last = a + size;
     size_t d = 0;
@@ -707,7 +820,7 @@ struct L21_MD_Adaptor {
       result += std::sqrt(diff0 * diff0 + diff1 * diff1 + diff2 * diff2);
       a += 3;
 
-      if ((worst_dist > 0) && (result > worst_dist)) {
+      if (result > worst_dist) {
         return result;
       }
     }
@@ -737,6 +850,40 @@ struct L21_MD_Adaptor {
   inline DistanceType accum_dist(const U a, const V b, const size_t) const {
     return std::abs(a - b) * sqrt3inv<DistanceType>();
   }
+
+  inline DistanceType eval_pair(const T *a, const T *b, size_t size, DistanceType worst_dist) const {
+    DistanceType result = DistanceType();
+    const T *last = a + size;
+
+    while (a < last) {
+      const DistanceType diff0 = a[0] - b[0];
+      const DistanceType diff1 = a[1] - b[1];
+      const DistanceType diff2 = a[2] - b[2];
+      result += std::sqrt(diff0 * diff0 + diff1 * diff1 + diff2 * diff2);
+      a += 3;
+      b += 3;
+
+      if (result > worst_dist) {
+        return result;
+      }
+    }
+    return result;
+  }
+
+  inline DistanceType eval_pair(const T *a, const T *b, size_t size) const {
+    DistanceType result = DistanceType();
+    const T *last = a + size;
+
+    while (a < last) {
+      const DistanceType diff0 = a[0] - b[0];
+      const DistanceType diff1 = a[1] - b[1];
+      const DistanceType diff2 = a[2] - b[2];
+      result += std::sqrt(diff0 * diff0 + diff1 * diff1 + diff2 * diff2);
+      a += 3;
+      b += 3;
+    }
+    return result;
+  }
 };
 
 template <class T, class DataSource, typename _DistanceType = T>
@@ -754,10 +901,6 @@ struct L21_3D_Adaptor_row {
     const T* vals = data_source.kdtree_get_row(b_idx);
     const T* last = a + size;
 
-    // if (size%3 != 0)
-    //   throw std::runtime_error("Error: 'dimensionality' must be a multiple of 3");
-
-    /* Process 3 items with each loop for efficiency. */
     while (a < last) {
       const DistanceType diff0 = a[0] - vals[0];
       const DistanceType diff1 = a[1] - vals[1];
@@ -778,10 +921,6 @@ struct L21_3D_Adaptor_row {
     const T* vals = data_source.kdtree_get_row(b_idx);
     const T* last = a + size;
 
-    // if (size%3 != 0)
-    //   throw std::runtime_error("Error: 'dimensionality' must be a multiple of 3");
-
-    /* Process 3 items with each loop for efficiency. */
     while (a < last) {
       const DistanceType diff0 = a[0] - vals[0];
       const DistanceType diff1 = a[1] - vals[1];
@@ -796,6 +935,41 @@ struct L21_3D_Adaptor_row {
  template <typename U, typename V>
  inline DistanceType accum_dist(const U a, const V b, const size_t) const {
    return std::abs(a - b) * sqrt3inv<DistanceType>();
+ }
+
+
+ inline DistanceType eval_pair(const T *a, const T *b, size_t size, DistanceType worst_dist) const {
+   DistanceType result = DistanceType();
+   const T *last = a + size;
+
+   while (a < last) {
+     const DistanceType diff0 = a[0] - b[0];
+     const DistanceType diff1 = a[1] - b[1];
+     const DistanceType diff2 = a[2] - b[2];
+     result += std::sqrt(diff0 * diff0 + diff1 * diff1 + diff2 * diff2);
+     a += 3;
+     b += 3;
+
+     if ((worst_dist > 0) && (result > worst_dist)) {
+       return result;
+     }
+   }
+   return result;
+ }
+
+ inline DistanceType eval_pair(const T *a, const T *b, size_t size) const {
+   DistanceType result = DistanceType();
+   const T *last = a + size;
+
+   while (a < last) {
+     const DistanceType diff0 = a[0] - b[0];
+     const DistanceType diff1 = a[1] - b[1];
+     const DistanceType diff2 = a[2] - b[2];
+     result += std::sqrt(diff0 * diff0 + diff1 * diff1 + diff2 * diff2);
+     a += 3;
+     b += 3;
+   }
+   return result;
  }
 };
 
