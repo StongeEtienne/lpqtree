@@ -1,4 +1,4 @@
-"Sklearn interface to the native nanoflann module"
+"""Sklearn interface to the native nanoflann module"""
 import copyreg
 import warnings
 from typing import Optional
@@ -7,7 +7,7 @@ import nanoflann_ext
 import numpy as np
 from sklearn.neighbors._base import KNeighborsMixin, NeighborsBase, RadiusNeighborsMixin
 from sklearn.utils.validation import check_is_fitted
-from scipy.sparse import csc_matrix, csr_matrix, coo_matrix
+from scipy.sparse import csr_matrix, coo_matrix
 
 SUPPORTED_TYPES = [np.float32, np.float64]
 
@@ -143,7 +143,7 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
     def get_csc_matrix(self):
         return self.get_coo_matrix().to_csc()
 
-    # Advanced operation
+    # Advanced operation, using mean-points and full-points array
     def radius_neighbors_full(self, X_mpts, Data_full, X_full, radius_full, n_jobs=1):
         nb_mpts = X_mpts.shape[1]
         nb_dim = X_full.shape[1]
