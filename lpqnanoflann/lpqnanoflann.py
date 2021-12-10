@@ -10,6 +10,8 @@ from sklearn.utils.validation import check_is_fitted
 from scipy.sparse import csr_matrix, coo_matrix
 
 SUPPORTED_TYPES = [np.float32, np.float64]
+SUPPORTED_DIM = [2, 3]
+SUPPORTED_METRIC = ["l1", "l2", "l11", "l22", "l21"]
 
 
 def pickler(c):
@@ -28,20 +30,24 @@ def unpickler(n_neighbors, radius, leaf_size, metric, X):
 
 def _check_arg(points):
     if points.dtype not in SUPPORTED_TYPES:
-        raise ValueError("Supported types: [{}]".format(SUPPORTED_TYPES))
-    if len(points.shape) != 2:
-        raise ValueError(f"Incorrect shape {len(points.shape)} != 2")
+        raise ValueError(f"Supported types: {points.dtype} not in {SUPPORTED_TYPES}")
+    if len(points.shape) not in SUPPORTED_DIM:
+        raise ValueError(f"Incorrect shape {len(points.shape)} not in {SUPPORTED_DIM}")
 
 
 class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
     def __init__(self, n_neighbors=5, radius=1.0, leaf_size=10, metric="l2"):
 
         metric = metric.lower()
-        if metric not in ["l1", "l2", "l21"]:
-            raise ValueError('Supported metrics: ["l1", "l2", "l21"]')
+        if metric not in SUPPORTED_METRIC:
+            raise ValueError(f"Supported metrics: {SUPPORTED_METRIC}")
 
         if metric == "l2":  # nanoflann uses squared distances
             radius = radius ** 2
+        elif metric == "l22":
+            metric = "l2"
+        elif metric == "l11":
+            metric = "l1"
 
         super().__init__(
             n_neighbors=n_neighbors, radius=radius, leaf_size=leaf_size, metric=metric
@@ -70,7 +76,16 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
                 "Consider a more suitable search structure."
             )
 
-        self.index.fit(X, index_path if index_path is not None else "")
+        if self.metric == "l2" or self.metric == "l1":
+            last_dim = 1
+        else:
+            if X.ndim == 3:
+                last_dim = X.shape[2]
+            else:
+                raise ValueError(f"{self.metric} metric should be used with 3dim array")
+
+        X = X.reshape((X.shape[0], -1))
+        self.index.fit(X, index_path if index_path is not None else "", last_dim)
         self._fit_X = X
 
     def get_data(self, copy: bool = True) -> np.ndarray:
@@ -93,6 +108,9 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
     def radius_neighbors(self, X, radius=None, return_distance=True, n_jobs=1, return_array=True):
         check_is_fitted(self, ["_fit_X"], all_or_any=any)
         _check_arg(X)
+
+        if X.ndim == 3:
+            X = X.reshape((X.shape[0], -1))
 
         if radius is None:
             radius = self.radius
@@ -145,6 +163,13 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
 
     # Advanced operation, using mean-points and full-points array
     def radius_neighbors_full(self, X_mpts, Data_full, X_full, radius_full, n_jobs=1):
+        if X_mpts.ndim == 3:
+            X_mpts = X_mpts.reshape((X_mpts.shape[0], -1))
+        if Data_full.ndim == 3:
+            Data_full = Data_full.reshape((Data_full.shape[0], -1))
+        if X_full.ndim == 3:
+            X_full = X_full.reshape((X_full.shape[0], -1))
+
         nb_mpts = X_mpts.shape[1]
         nb_dim = X_full.shape[1]
 

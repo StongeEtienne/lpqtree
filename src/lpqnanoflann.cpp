@@ -19,7 +19,6 @@ using namespace nanoflann;
 using i_np_arr_t = pybind11::array_t<size_t, pybind11::array::c_style | pybind11::array::forcecast>;
 using vvi = std::vector<std::vector<size_t>>;
 
-
 template <typename num_t>
 class AbstractKDTree {
  public:
@@ -53,7 +52,8 @@ struct KDTreeNumpyAdaptor : public AbstractKDTree<num_t> {
 
   index_t *index;
   const num_t *buf;
-  size_t n_points, dim;
+  size_t n_points;
+  size_t dim;
 
   KDTreeNumpyAdaptor(const f_np_arr_t &points, const int leaf_max_size = 10) {
     buf = points.template unchecked<2>().data(0, 0);
@@ -135,7 +135,7 @@ class KDTree {
 
   KDTree(size_t n_neighbors = 10, size_t leaf_size = 10, std::string metric = "l2", num_t radius = 1.0f);
   ~KDTree() { delete index; }
-  void fit(f_np_arr_t points, std::string index_path);
+  void fit(f_np_arr_t points, std::string index_path, size_t ndim = 1);
 
   // kneighbors search
   std::pair<f_np_arr_t, i_np_arr_t> kneighbors(f_np_arr_t array, size_t n_neighbors);
@@ -187,144 +187,182 @@ KDTree<num_t>::KDTree(size_t n_neighbors, size_t leaf_size, std::string metric,
 
 
 template <typename num_t>
-void KDTree<num_t>::fit(f_np_arr_t points, std::string index_path) {
+void KDTree<num_t>::fit(f_np_arr_t points, std::string index_path, size_t ndim) {
   // Dynamic template instantiation for the popular use cases
-  if (metric == "l21")
-    if (points.shape(1)%3 != 0)
-      throw std::runtime_error("Error L21 only work with 3D multiple values");
+  if (points.shape(1) % ndim > 0 )
+    throw std::runtime_error("ERROROROROROROR");
 
-  switch (points.shape(1)) {
+  const int mdim = points.shape(1) / ndim;
+
+  switch (ndim) {
     case 1:
-      if (metric == "l2")
-        index = new KDTreeNumpyAdaptor<num_t, 1>(points, leaf_size);
-      else
-        index = new KDTreeNumpyAdaptor<num_t, 1, nanoflann::metric_L1>(
-            points, leaf_size);
+      switch (mdim) {
+        case 1:
+          if (metric == "l1")
+            index = new KDTreeNumpyAdaptor<num_t, 1, nanoflann::metric_L1_1D>(points, leaf_size);
+          else if (metric == "l2")
+            index = new KDTreeNumpyAdaptor<num_t, 1, nanoflann::metric_L2_1D>(points, leaf_size);
+          else
+            throw std::runtime_error("only L1 or L2 supported with a 2Dim numpy array");
+          break;
+        case 2:
+          if (metric == "l1")
+            index = new KDTreeNumpyAdaptor<num_t, 2, nanoflann::metric_L1_2D>(points, leaf_size);
+          else if (metric == "l2")
+            index = new KDTreeNumpyAdaptor<num_t, 2, nanoflann::metric_L2_2D>(points, leaf_size);
+          else
+            throw std::runtime_error("only L1 or L2 supported with a 2Dim numpy array");
+          break;
+        case 3:
+          if (metric == "l1")
+            index = new KDTreeNumpyAdaptor<num_t, 3, nanoflann::metric_L1_3D>(points, leaf_size);
+          else if (metric == "l2")
+            index = new KDTreeNumpyAdaptor<num_t, 3, nanoflann::metric_L2_3D>(points, leaf_size);
+          else
+            throw std::runtime_error("only L1 or L2 supported with a 2Dim numpy array");
+          break;
+        case 4:
+          if (metric == "l1")
+            index = new KDTreeNumpyAdaptor<num_t, 4, nanoflann::metric_L1_4D>(points, leaf_size);
+          else if (metric == "l2")
+            index = new KDTreeNumpyAdaptor<num_t, 4, nanoflann::metric_L2_4D>(points, leaf_size);
+          else
+            throw std::runtime_error("only L1 or L2 supported with a 2Dim numpy array");
+          break;
+        case 5:
+          if (metric == "l1")
+            index = new KDTreeNumpyAdaptor<num_t, 5, nanoflann::metric_L1_5D>(points, leaf_size);
+          else if (metric == "l2")
+            index = new KDTreeNumpyAdaptor<num_t, 5, nanoflann::metric_L2_5D>(points, leaf_size);
+          else
+            throw std::runtime_error("only L1 or L2 supported with a 2Dim numpy array");
+          break;
+        case 6:
+          if (metric == "l1")
+            index = new KDTreeNumpyAdaptor<num_t, 6, nanoflann::metric_L1_6D>(points, leaf_size);
+          else if (metric == "l2")
+            index = new KDTreeNumpyAdaptor<num_t, 6, nanoflann::metric_L2_6D>(points, leaf_size);
+          else
+            throw std::runtime_error("only L1 or L2 supported with a 2Dim numpy array");
+          break;
+        default:
+          // Arbitrary dim but works slightly slower
+          if (metric == "l1")
+            index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L1>(points, leaf_size);
+          else if (metric == "l2")
+            index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L2>(points, leaf_size);
+          else
+            throw std::runtime_error("only L1 or L2 supported with a 2Dim numpy array");
+          break;
+      }
       break;
     case 2:
-      if (metric == "l2")
-        index = new KDTreeNumpyAdaptor<num_t, 2>(points, leaf_size);
-      else
-        index = new KDTreeNumpyAdaptor<num_t, 2, nanoflann::metric_L1>(
-            points, leaf_size);
+      switch (mdim) {
+        case 1:
+          if (metric == "l21")
+            index = new KDTreeNumpyAdaptor<num_t, 2, nanoflann::metric_L21_2D>(points, leaf_size);
+          else
+            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
+          break;
+        case 2:
+          if (metric == "l21")
+            index = new KDTreeNumpyAdaptor<num_t, 4, nanoflann::metric_L21_2D>(points, leaf_size);
+          else
+            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
+          break;
+        case 3:
+          if (metric == "l21")
+            index = new KDTreeNumpyAdaptor<num_t, 6, nanoflann::metric_L21_2D>(points, leaf_size);
+          else
+            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
+          break;
+        case 4:
+          if (metric == "l21")
+            index = new KDTreeNumpyAdaptor<num_t, 8, nanoflann::metric_L21_2D>(points, leaf_size);
+          else
+            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
+          break;
+        default:
+          if (metric == "l21")
+            index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L21_2D>(points, leaf_size);
+          else
+            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
+          break;
+      }
       break;
     case 3:
-      if (metric == "l2")
-        index = new KDTreeNumpyAdaptor<num_t, 3>(points, leaf_size);
-      else if (metric == "l21")
-        index = new KDTreeNumpyAdaptor<num_t, 3, nanoflann::metric_L21_3D_row>(
-            points, leaf_size);
-      else
-        index = new KDTreeNumpyAdaptor<num_t, 3, nanoflann::metric_L1>(
-            points, leaf_size);
+      switch (mdim) {
+        case 1:
+          if (metric == "l21")
+            index = new KDTreeNumpyAdaptor<num_t, 3, nanoflann::metric_L21_3D>(points, leaf_size);
+          else
+            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
+          break;
+        case 2:
+          if (metric == "l21")
+            index = new KDTreeNumpyAdaptor<num_t, 6, nanoflann::metric_L21_3D>(points, leaf_size);
+          else
+            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
+          break;
+        case 3:
+          if (metric == "l21")
+            index = new KDTreeNumpyAdaptor<num_t, 9, nanoflann::metric_L21_3D>(points, leaf_size);
+          else
+            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
+          break;
+        case 4:
+          if (metric == "l21")
+            index = new KDTreeNumpyAdaptor<num_t, 12, nanoflann::metric_L21_3D>(points, leaf_size);
+          else
+            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
+          break;
+        default:
+          if (metric == "l21")
+            index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L21_3D>(points, leaf_size);
+          else
+            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
+          break;
+      }
       break;
     case 4:
-      if (metric == "l2")
-        index = new KDTreeNumpyAdaptor<num_t, 4>(points, leaf_size);
-      else
-        index = new KDTreeNumpyAdaptor<num_t, 4, nanoflann::metric_L1>(
-            points, leaf_size);
+      switch (mdim) {
+        case 1:
+          if (metric == "l21")
+            index = new KDTreeNumpyAdaptor<num_t, 4, nanoflann::metric_L21_4D>(points, leaf_size);
+          else
+            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
+          break;
+        case 2:
+          if (metric == "l21")
+            index = new KDTreeNumpyAdaptor<num_t, 8, nanoflann::metric_L21_4D>(points, leaf_size);
+          else
+            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
+          break;
+        case 3:
+          if (metric == "l21")
+            index = new KDTreeNumpyAdaptor<num_t, 12, nanoflann::metric_L21_4D>(points, leaf_size);
+          else
+            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
+          break;
+        case 4:
+          if (metric == "l21")
+            index = new KDTreeNumpyAdaptor<num_t, 16, nanoflann::metric_L21_4D>(points, leaf_size);
+          else
+            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
+          break;
+        default:
+          if (metric == "l21")
+            index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L21_4D>(points, leaf_size);
+          else
+            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
+          break;
+      }
       break;
-    case 5:
-      if (metric == "l2")
-        index = new KDTreeNumpyAdaptor<num_t, 5>(points, leaf_size);
-      else
-        index = new KDTreeNumpyAdaptor<num_t, 5, nanoflann::metric_L1>(
-            points, leaf_size);
-      break;
-    case 6:
-      if (metric == "l2")
-        index = new KDTreeNumpyAdaptor<num_t, 6>(points, leaf_size);
-      else if (metric == "l21")
-        index = new KDTreeNumpyAdaptor<num_t, 6, nanoflann::metric_L21_3D_row>(
-            points, leaf_size);
-      else
-        index = new KDTreeNumpyAdaptor<num_t, 6, nanoflann::metric_L1>(
-            points, leaf_size);
-      break;
-    case 7:
-      if (metric == "l2")
-        index = new KDTreeNumpyAdaptor<num_t, 7>(points, leaf_size);
-      else
-        index = new KDTreeNumpyAdaptor<num_t, 7, nanoflann::metric_L1>(
-            points, leaf_size);
-      break;
-    case 8:
-      if (metric == "l2")
-        index = new KDTreeNumpyAdaptor<num_t, 8>(points, leaf_size);
-      else
-        index = new KDTreeNumpyAdaptor<num_t, 8, nanoflann::metric_L1>(
-            points, leaf_size);
-      break;
-    case 9:
-      if (metric == "l2")
-        index = new KDTreeNumpyAdaptor<num_t, 9>(points, leaf_size);
-      else if (metric == "l21")
-        index = new KDTreeNumpyAdaptor<num_t, 9, nanoflann::metric_L21_3D_row>(
-            points, leaf_size);
-      else
-        index = new KDTreeNumpyAdaptor<num_t, 9, nanoflann::metric_L1>(
-            points, leaf_size);
-      break;
-    case 10:
-      if (metric == "l2")
-        index = new KDTreeNumpyAdaptor<num_t, 10>(points, leaf_size);
-      else
-        index = new KDTreeNumpyAdaptor<num_t, 10, nanoflann::metric_L1>(
-            points, leaf_size);
-      break;
-    case 11:
-      if (metric == "l2")
-        index = new KDTreeNumpyAdaptor<num_t, 11>(points, leaf_size);
-      else
-        index = new KDTreeNumpyAdaptor<num_t, 11, nanoflann::metric_L1>(
-            points, leaf_size);
-      break;
-    case 12:
-      if (metric == "l2")
-        index = new KDTreeNumpyAdaptor<num_t, 12>(points, leaf_size);
-      else if (metric == "l21")
-        index = new KDTreeNumpyAdaptor<num_t, 12, nanoflann::metric_L21_3D_row>(
-            points, leaf_size);
-      else
-        index = new KDTreeNumpyAdaptor<num_t, 12, nanoflann::metric_L1>(
-            points, leaf_size);
-      break;
-    case 13:
-      if (metric == "l2")
-        index = new KDTreeNumpyAdaptor<num_t, 13>(points, leaf_size);
-      else
-        index = new KDTreeNumpyAdaptor<num_t, 13, nanoflann::metric_L1>(
-            points, leaf_size);
-      break;
-    case 14:
-      if (metric == "l2")
-        index = new KDTreeNumpyAdaptor<num_t, 14>(points, leaf_size);
-      else
-        index = new KDTreeNumpyAdaptor<num_t, 14, nanoflann::metric_L1>(
-            points, leaf_size);
-      break;
-    case 15:
-      if (metric == "l2")
-        index = new KDTreeNumpyAdaptor<num_t, 15>(points, leaf_size);
-      else if (metric == "l21")
-        index = new KDTreeNumpyAdaptor<num_t, 15, nanoflann::metric_L21_3D_row>(
-            points, leaf_size);
-      else
-        index = new KDTreeNumpyAdaptor<num_t, 15, nanoflann::metric_L1>(
-            points, leaf_size);
-      break;
-
     default:
-      // Arbitrary dim but works slightly slower
-      if (metric == "l2")
-        index = new KDTreeNumpyAdaptor<num_t, -1>(points, leaf_size);
-      else if (metric == "l21")
-        index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L21_3D_row>(
-            points, leaf_size);
-      else
-        index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L1>(
-            points, leaf_size);
+      if (metric == "l21")
+        throw std::runtime_error(" l21 is only supported with 2D, 3D or 4D points (from numpy.shape[3])");
+      else if (metric == "l12")
+        throw std::runtime_error(" l12 is not yet supported");
       break;
   }
   if (index_path.size()) {

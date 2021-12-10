@@ -58,12 +58,15 @@
 #include <stdexcept>
 #include <vector>
 
+#include <lpq_l1_nd.hpp>
+#include <lpq_l2_nd.hpp>
+#include <lpq_l21.hpp>
+
 /** Library version: 0xMmP (M=Major,m=minor,P=patch) */
 #define NANOFLANN_VERSION 0x132
 
 // Avoid conflicting declaration of min/max macros in windows headers
-#if !defined(NOMINMAX) &&                                                      \
-    (defined(_WIN32) || defined(_WIN32_) || defined(WIN32) || defined(_WIN64))
+#if !defined(NOMINMAX) && (defined(_WIN32) || defined(_WIN32_) || defined(WIN32) || defined(_WIN64))
 #define NOMINMAX
 #ifdef max
 #undef max
@@ -76,17 +79,6 @@ namespace nanoflann {
  *  @{ */
 
  /** the PI constant (required to avoid MSVC missing symbols) */
- template <typename T> T pi_const() {
-   return static_cast<T>(3.14159265358979323846);
- }
-
- template <typename T> T sqrt3inv() {
-   return static_cast<T>(0.577350269);
- }
-
- // template <typename T> T sqrtMinv() {
- //   return static_cast<T>(1.0) / std::sqrt(static_cast<T>(M_DIM));
- // }
 
 
 /**
@@ -358,672 +350,154 @@ template <typename T> void load_value(FILE *stream, std::vector<T> &value) {
 
 struct Metric {};
 
-/** Manhattan distance functor (generic version, optimized for
- * high-dimensionality data sets). Corresponding distance traits:
- * nanoflann::metric_L1 \tparam T Type of the elements (e.g. double, float,
- * uint8_t) \tparam _DistanceType Type of distance variables (must be signed)
- * (e.g. float, double, int64_t)
- */
-template <class T, class DataSource, typename _DistanceType = T>
-struct L1_Adaptor {
-  typedef T ElementType;
-  typedef _DistanceType DistanceType;
-
-  const DataSource &data_source;
-
-  L1_Adaptor(const DataSource &_data_source) : data_source(_data_source) {}
-
-  inline DistanceType evalMetric(const T *a, const size_t b_idx, size_t size, DistanceType worst_dist) const {
-    DistanceType result = DistanceType();
-    const T *last = a + size;
-    const T *lastgroup = last - 3;
-    size_t d = 0;
-
-    /* Process 4 items with each loop for efficiency. */
-    while (a < lastgroup) {
-      const DistanceType diff0 =
-          std::abs(a[0] - data_source.kdtree_get_pt(b_idx, d++));
-      const DistanceType diff1 =
-          std::abs(a[1] - data_source.kdtree_get_pt(b_idx, d++));
-      const DistanceType diff2 =
-          std::abs(a[2] - data_source.kdtree_get_pt(b_idx, d++));
-      const DistanceType diff3 =
-          std::abs(a[3] - data_source.kdtree_get_pt(b_idx, d++));
-      result += diff0 + diff1 + diff2 + diff3;
-      a += 4;
-      if ((worst_dist > 0) && (result > worst_dist)) {
-        return result;
-      }
-    }
-    /* Process last 0-3 components.  Not needed for standard vector lengths. */
-    while (a < last) {
-      result += std::abs(*a++ - data_source.kdtree_get_pt(b_idx, d++));
-    }
-    return result;
-  }
-
-  inline DistanceType evalMetric(const T *a, const size_t b_idx, size_t size) const {
-    DistanceType result = DistanceType();
-    const T *last = a + size;
-    const T *lastgroup = last - 3;
-    size_t d = 0;
-
-    /* Process 4 items with each loop for efficiency. */
-    while (a < lastgroup) {
-      const DistanceType diff0 =
-          std::abs(a[0] - data_source.kdtree_get_pt(b_idx, d++));
-      const DistanceType diff1 =
-          std::abs(a[1] - data_source.kdtree_get_pt(b_idx, d++));
-      const DistanceType diff2 =
-          std::abs(a[2] - data_source.kdtree_get_pt(b_idx, d++));
-      const DistanceType diff3 =
-          std::abs(a[3] - data_source.kdtree_get_pt(b_idx, d++));
-      result += diff0 + diff1 + diff2 + diff3;
-      a += 4;
-    }
-    /* Process last 0-3 components.  Not needed for standard vector lengths. */
-    while (a < last) {
-      result += std::abs(*a++ - data_source.kdtree_get_pt(b_idx, d++));
-    }
-    return result;
-  }
-
-  template <typename U, typename V>
-  inline DistanceType accum_dist(const U a, const V b, const size_t) const {
-    return std::abs(a - b);
-  }
-
-  inline DistanceType eval_pair(const T *a, const T *b, size_t size, DistanceType worst_dist) const {
-    DistanceType result = DistanceType();
-    const T *last = a + size;
-    const T *lastgroup = last - 3;
-
-    /* Process 4 items with each loop for efficiency. */
-    while (a < lastgroup) {
-      const DistanceType diff0 = std::abs(a[0] - b[0]);
-      const DistanceType diff1 = std::abs(a[1] - b[1]);
-      const DistanceType diff2 = std::abs(a[2] - b[2]);
-      const DistanceType diff3 = std::abs(a[3] - b[3]);
-      result += diff0 + diff1 + diff2 + diff3;
-      a += 4;
-      b += 4;
-      if ((worst_dist > 0) && (result > worst_dist)) {
-        return result;
-      }
-    }
-    /* Process last 0-3 components.  Not needed for standard vector lengths. */
-    while (a < last) {
-      result += std::abs(*a++ - *b++);
-    }
-    return result;
-  }
-
-  inline DistanceType eval_pair(const T *a, const T *b, size_t size) const {
-    DistanceType result = DistanceType();
-    const T *last = a + size;
-    const T *lastgroup = last - 3;
-    /* Process 4 items with each loop for efficiency. */
-    while (a < lastgroup) {
-      const DistanceType diff0 = std::abs(a[0] - b[0]);
-      const DistanceType diff1 = std::abs(a[1] - b[1]);
-      const DistanceType diff2 = std::abs(a[2] - b[2]);
-      const DistanceType diff3 = std::abs(a[3] - b[3]);
-      result += diff0 + diff1 + diff2 + diff3;
-      a += 4;
-      b += 4;
-    }
-    /* Process last 0-3 components.  Not needed for standard vector lengths. */
-    while (a < last) {
-      result += std::abs(*a++ - *b++);
-    }
-    return result;
-  }
-};
-
-/** Squared Euclidean distance functor (generic version, optimized for
- * high-dimensionality data sets). Corresponding distance traits:
- * nanoflann::metric_L2 \tparam T Type of the elements (e.g. double, float,
- * uint8_t) \tparam _DistanceType Type of distance variables (must be signed)
- * (e.g. float, double, int64_t)
- */
-template <class T, class DataSource, typename _DistanceType = T>
-struct L2_Adaptor {
-  typedef T ElementType;
-  typedef _DistanceType DistanceType;
-
-  const DataSource &data_source;
-
-  L2_Adaptor(const DataSource &_data_source) : data_source(_data_source) {}
-
-  inline DistanceType evalMetric(const T *a, const size_t b_idx, size_t size,
-                                 DistanceType worst_dist) const {
-    DistanceType result = DistanceType();
-    const T *last = a + size;
-    const T *lastgroup = last - 3;
-    size_t d = 0;
-
-    /* Process 4 items with each loop for efficiency. */
-    while (a < lastgroup) {
-      const DistanceType diff0 = a[0] - data_source.kdtree_get_pt(b_idx, d++);
-      const DistanceType diff1 = a[1] - data_source.kdtree_get_pt(b_idx, d++);
-      const DistanceType diff2 = a[2] - data_source.kdtree_get_pt(b_idx, d++);
-      const DistanceType diff3 = a[3] - data_source.kdtree_get_pt(b_idx, d++);
-      result += diff0 * diff0 + diff1 * diff1 + diff2 * diff2 + diff3 * diff3;
-      a += 4;
-      if ((worst_dist > 0) && (result > worst_dist)) {
-        return result;
-      }
-    }
-    /* Process last 0-3 components.  Not needed for standard vector lengths. */
-    while (a < last) {
-      const DistanceType diff0 = *a++ - data_source.kdtree_get_pt(b_idx, d++);
-      result += diff0 * diff0;
-    }
-    return result;
-  }
-
-  inline DistanceType evalMetric(const T *a, const size_t b_idx, size_t size) const {
-    DistanceType result = DistanceType();
-    const T *last = a + size;
-    const T *lastgroup = last - 3;
-    size_t d = 0;
-
-    /* Process 4 items with each loop for efficiency. */
-    while (a < lastgroup) {
-      const DistanceType diff0 = a[0] - data_source.kdtree_get_pt(b_idx, d++);
-      const DistanceType diff1 = a[1] - data_source.kdtree_get_pt(b_idx, d++);
-      const DistanceType diff2 = a[2] - data_source.kdtree_get_pt(b_idx, d++);
-      const DistanceType diff3 = a[3] - data_source.kdtree_get_pt(b_idx, d++);
-      result += diff0 * diff0 + diff1 * diff1 + diff2 * diff2 + diff3 * diff3;
-      a += 4;
-    }
-    /* Process last 0-3 components.  Not needed for standard vector lengths. */
-    while (a < last) {
-      const DistanceType diff0 = *a++ - data_source.kdtree_get_pt(b_idx, d++);
-      result += diff0 * diff0;
-    }
-    return result;
-  }
-
-  template <typename U, typename V>
-  inline DistanceType accum_dist(const U a, const V b, const size_t) const {
-    return (a - b) * (a - b);
-  }
-
-
-  inline DistanceType eval_pair(const T *a, const T *b, size_t size, DistanceType worst_dist) const {
-    DistanceType result = DistanceType();
-    const T *last = a + size;
-    const T *lastgroup = last - 3;
-
-    /* Process 4 items with each loop for efficiency. */
-    while (a < lastgroup) {
-      const DistanceType diff0 = a[0] - b[0];
-      const DistanceType diff1 = a[1] - b[1];
-      const DistanceType diff2 = a[2] - b[2];
-      const DistanceType diff3 = a[3] - b[3];
-      result += diff0 * diff0 + diff1 * diff1 + diff2 * diff2 + diff3 * diff3;
-      a += 4;
-      b += 4;
-      if ((worst_dist > 0) && (result > worst_dist)) {
-        return result;
-      }
-    }
-    /* Process last 0-3 components.  Not needed for standard vector lengths. */
-    while (a < last) {
-      const DistanceType diff0 = *a++ - *b++;
-      result += diff0 * diff0;
-    }
-    return result;
-  }
-
-  inline DistanceType eval_pair(const T *a, const T *b, size_t size) const {
-    DistanceType result = DistanceType();
-    const T *last = a + size;
-    const T *lastgroup = last - 3;
-
-    /* Process 4 items with each loop for efficiency. */
-    while (a < lastgroup) {
-      const DistanceType diff0 = a[0] - b[0];
-      const DistanceType diff1 = a[1] - b[1];
-      const DistanceType diff2 = a[2] - b[2];
-      const DistanceType diff3 = a[3] - b[3];
-      result += diff0 * diff0 + diff1 * diff1 + diff2 * diff2 + diff3 * diff3;
-      a += 4;
-      b += 4;
-    }
-    /* Process last 0-3 components.  Not needed for standard vector lengths. */
-    while (a < last) {
-      const DistanceType diff0 = *a++ - *b++;
-      result += diff0 * diff0;
-    }
-    return result;
-  }
-};
-
-/** Squared Euclidean (L2) distance functor (suitable for low-dimensionality
- * datasets, like 2D or 3D point clouds) Corresponding distance traits:
- * nanoflann::metric_L2_Simple \tparam T Type of the elements (e.g. double,
- * float, uint8_t) \tparam _DistanceType Type of distance variables (must be
- * signed) (e.g. float, double, int64_t)
- */
-template <class T, class DataSource, typename _DistanceType = T>
-struct L2_Simple_Adaptor {
-  typedef T ElementType;
-  typedef _DistanceType DistanceType;
-
-  const DataSource &data_source;
-
-  L2_Simple_Adaptor(const DataSource &_data_source)
-      : data_source(_data_source) {}
-
-  inline DistanceType evalMetric(const T *a, const size_t b_idx, size_t size) const {
-    DistanceType result = DistanceType();
-    for (size_t i = 0; i < size; ++i) {
-      const DistanceType diff = a[i] - data_source.kdtree_get_pt(b_idx, i);
-      result += diff * diff;
-    }
-    return result;
-  }
-
-  template <typename U, typename V>
-  inline DistanceType accum_dist(const U a, const V b, const size_t) const {
-    return (a - b) * (a - b);
-  }
-
-
-  inline DistanceType eval_pair(const T *a, const T *b, size_t size, DistanceType worst_dist) const {
-    DistanceType result = DistanceType();
-    for (size_t i = 0; i < size; ++i) {
-      const DistanceType diff = a[i] - b[i];
-      result += diff * diff;
-
-      if (result > worst_dist) {
-        return result;
-      }
-    }
-    return result;
-  }
-
-  inline DistanceType eval_pair(const T *a, const T *b, size_t size) const {
-    DistanceType result = DistanceType();
-    for (size_t i = 0; i < size; ++i) {
-      const DistanceType diff = a[i] - b[i];
-      result += diff * diff;
-    }
-    return result;
-  }
-};
-
-/** SO2 distance functor
- *  Corresponding distance traits: nanoflann::metric_SO2
- * \tparam T Type of the elements (e.g. double, float)
- * \tparam _DistanceType Type of distance variables (must be signed) (e.g.
- * float, double) orientation is constrained to be in [-pi, pi]
- */
-template <class T, class DataSource, typename _DistanceType = T>
-struct SO2_Adaptor {
-  typedef T ElementType;
-  typedef _DistanceType DistanceType;
-
-  const DataSource &data_source;
-
-  SO2_Adaptor(const DataSource &_data_source) : data_source(_data_source) {}
-
-  inline DistanceType evalMetric(const T *a, const size_t b_idx, size_t size) const {
-    return accum_dist(a[size - 1], data_source.kdtree_get_pt(b_idx, size - 1),
-                      size - 1);
-  }
-
-  /** Note: this assumes that input angles are already in the range [-pi,pi] */
-  template <typename U, typename V>
-  inline DistanceType accum_dist(const U a, const V b, const size_t) const {
-    DistanceType result = DistanceType();
-    DistanceType PI = pi_const<DistanceType>();
-    result = b - a;
-    if (result > PI)
-      result -= 2 * PI;
-    else if (result < -PI)
-      result += 2 * PI;
-    return result;
-  }
-};
-
-/** SO3 distance functor (Uses L2_Simple)
- *  Corresponding distance traits: nanoflann::metric_SO3
- * \tparam T Type of the elements (e.g. double, float)
- * \tparam _DistanceType Type of distance variables (must be signed) (e.g.
- * float, double)
- */
-template <class T, class DataSource, typename _DistanceType = T>
-struct SO3_Adaptor {
-  typedef T ElementType;
-  typedef _DistanceType DistanceType;
-
-  L2_Simple_Adaptor<T, DataSource> distance_L2_Simple;
-
-  SO3_Adaptor(const DataSource &_data_source)
-      : distance_L2_Simple(_data_source) {}
-
-  inline DistanceType evalMetric(const T *a, const size_t b_idx,
-                                 size_t size) const {
-    return distance_L2_Simple.evalMetric(a, b_idx, size);
-  }
-
-  template <typename U, typename V>
-  inline DistanceType accum_dist(const U a, const V b, const size_t idx) const {
-    return distance_L2_Simple.accum_dist(a, b, idx);
-  }
-};
-
-
-/** L21 distance functor adaptator (Etienne St-Onge)
- * nanoflann::L21_3D_Adaptor
- *
- * \tparam T Type of the elements (e.g. double, float, uint8_t)
- * \tparam DataSource Source of the data, i.e. where the vectors are stored
- * \tparam _DistanceType Type of distance variables (must be signed)
- * (e.g. float, double, int64_t, T*)
- */
-template <class T, class DataSource, typename _DistanceType = T, size_t MDIM = 3>
-struct L21_MD_Adaptor {
-  typedef T ElementType;
-  typedef _DistanceType DistanceType;
-
-  const DataSource &data_source;
-
-  L21_MD_Adaptor(const DataSource &_data_source)
-      : data_source(_data_source) {}
-
-  inline DistanceType evalMetric(const T *a, const size_t b_idx, size_t size,
-                                 DistanceType worst_dist) const {
-    DistanceType result = DistanceType();
-    size_t d = 0;
-
-    // if (size%MDIM != 0)
-    //   throw std::runtime_error("Error: 'dimensionality' must be a multiple of MDIM");
-
-    /* Process 4 items with each loop for efficiency. */
-    for (size_t i = 0; i < size; i += MDIM){
-      DistanceType result_m = DistanceType();
-      for (size_t m = 0; m < MDIM; m++){
-        const DistanceType diff = a[d] - data_source.kdtree_get_pt(b_idx, d);
-        result_m += diff*diff;
-        ++d;
-      }
-      result += std::sqrt(result_m);
-
-      if (result > worst_dist) {
-        return result;
-      }
-    }
-    return result;
-  }
-
-  inline DistanceType evalMetric(const T *a, const size_t b_idx, size_t size) const {
-    DistanceType result = DistanceType();
-    size_t d = 0;
-
-    // if (size%MDIM != 0)
-    //   throw std::runtime_error("Error: 'dimensionality' must be a multiple of MDIM");
-
-    /* Process 4 items with each loop for efficiency. */
-    for (size_t i = 0; i < size; i += MDIM){
-      DistanceType result_m = DistanceType();
-      for (size_t m = 0; m < MDIM; m++){
-        const DistanceType diff = a[d] - data_source.kdtree_get_pt(b_idx, d);
-        result_m += diff*diff;
-        ++d;
-      }
-      result += std::sqrt(result_m);
-    }
-    return result;
-  }
-
-  template <typename U, typename V>
-  inline DistanceType accum_dist(const U a, const V b, const size_t) const {
-    return std::abs(a - b) / std::sqrt(static_cast<U>(MDIM));
-  }
-};
-
-
-/** L21 distance functor (Etienne St-Onge adaptator. Corresponding distance traits:
- * nanoflann::L21_3D_Adaptor
- *
- * \tparam T Type of the elements (e.g. double, float, uint8_t)
- * \tparam DataSource Source of the data, i.e. where the vectors are stored
- * \tparam _DistanceType Type of distance variables (must be signed)
- * (e.g. float, double, int64_t, T*)
- */
- template <class T, class DataSource, typename _DistanceType = T>
- struct L21_3D_Adaptor {
-  typedef T ElementType;
-  typedef _DistanceType DistanceType;
-
-  const DataSource &data_source;
-
-  L21_3D_Adaptor(const DataSource &_data_source) : data_source(_data_source) {}
-
-  inline DistanceType evalMetric(const T *a, const size_t b_idx, size_t size, DistanceType worst_dist) const {
-    DistanceType result = DistanceType();
-    const T *last = a + size;
-    size_t d = 0;
-
-    // if (size%3 != 0)
-    //   throw std::runtime_error("Error: 'dimensionality' must be a multiple of 3");
-
-    /* Process 3 items with each loop for efficiency. */
-    while (a < last) {
-      const DistanceType diff0 = a[0] - data_source.kdtree_get_pt(b_idx, d++);
-      const DistanceType diff1 = a[1] - data_source.kdtree_get_pt(b_idx, d++);
-      const DistanceType diff2 = a[2] - data_source.kdtree_get_pt(b_idx, d++);
-      result += std::sqrt(diff0 * diff0 + diff1 * diff1 + diff2 * diff2);
-      a += 3;
-
-      if (result > worst_dist) {
-        return result;
-      }
-    }
-    return result;
-  }
-
-  inline DistanceType evalMetric(const T *a, const size_t b_idx, size_t size) const {
-    DistanceType result = DistanceType();
-    const T *last = a + size;
-    size_t d = 0;
-
-    // if (size%3 != 0)
-    //   throw std::runtime_error("Error: 'dimensionality' must be a multiple of 3");
-
-    /* Process 3 items with each loop for efficiency. */
-    while (a < last) {
-      const DistanceType diff0 = a[0] - data_source.kdtree_get_pt(b_idx, d++);
-      const DistanceType diff1 = a[1] - data_source.kdtree_get_pt(b_idx, d++);
-      const DistanceType diff2 = a[2] - data_source.kdtree_get_pt(b_idx, d++);
-      result += std::sqrt(diff0 * diff0 + diff1 * diff1 + diff2 * diff2);
-      a += 3;
-    }
-    return result;
-  }
-
-  template <typename U, typename V>
-  inline DistanceType accum_dist(const U a, const V b, const size_t) const {
-    return std::abs(a - b) * sqrt3inv<DistanceType>();
-  }
-
-  inline DistanceType eval_pair(const T *a, const T *b, size_t size, DistanceType worst_dist) const {
-    DistanceType result = DistanceType();
-    const T *last = a + size;
-
-    while (a < last) {
-      const DistanceType diff0 = a[0] - b[0];
-      const DistanceType diff1 = a[1] - b[1];
-      const DistanceType diff2 = a[2] - b[2];
-      result += std::sqrt(diff0 * diff0 + diff1 * diff1 + diff2 * diff2);
-      a += 3;
-      b += 3;
-
-      if (result > worst_dist) {
-        return result;
-      }
-    }
-    return result;
-  }
-
-  inline DistanceType eval_pair(const T *a, const T *b, size_t size) const {
-    DistanceType result = DistanceType();
-    const T *last = a + size;
-
-    while (a < last) {
-      const DistanceType diff0 = a[0] - b[0];
-      const DistanceType diff1 = a[1] - b[1];
-      const DistanceType diff2 = a[2] - b[2];
-      result += std::sqrt(diff0 * diff0 + diff1 * diff1 + diff2 * diff2);
-      a += 3;
-      b += 3;
-    }
-    return result;
-  }
-};
-
-template <class T, class DataSource, typename _DistanceType = T>
-struct L21_3D_Adaptor_row {
-  typedef T ElementType;
-  typedef _DistanceType DistanceType;
-
-  const DataSource &data_source;
-
-  L21_3D_Adaptor_row(const DataSource &_data_source) : data_source(_data_source) {}
-
-  inline DistanceType evalMetric(const T *a, const size_t b_idx, size_t size,
-                                 DistanceType worst_dist) const {
-    DistanceType result = T();
-    const T* vals = data_source.kdtree_get_row(b_idx);
-    const T* last = a + size;
-
-    while (a < last) {
-      const DistanceType diff0 = a[0] - vals[0];
-      const DistanceType diff1 = a[1] - vals[1];
-      const DistanceType diff2 = a[2] - vals[2];
-      result += std::sqrt(diff0 * diff0 + diff1 * diff1 + diff2 * diff2);
-
-      if ((worst_dist > 0) && (result > worst_dist)) {
-        return result;
-      }
-      a += 3;
-      vals +=3;
-    }
-    return result;
-  }
-
-  inline DistanceType evalMetric(const T *a, const size_t b_idx, size_t size) const {
-    DistanceType result = T();
-    const T* vals = data_source.kdtree_get_row(b_idx);
-    const T* last = a + size;
-
-    while (a < last) {
-      const DistanceType diff0 = a[0] - vals[0];
-      const DistanceType diff1 = a[1] - vals[1];
-      const DistanceType diff2 = a[2] - vals[2];
-      result += std::sqrt(diff0 * diff0 + diff1 * diff1 + diff2 * diff2);
-      a += 3;
-      vals +=3;
-    }
-    return result;
-  }
-
- template <typename U, typename V>
- inline DistanceType accum_dist(const U a, const V b, const size_t) const {
-   return std::abs(a - b) * sqrt3inv<DistanceType>();
- }
-
-
- inline DistanceType eval_pair(const T *a, const T *b, size_t size, DistanceType worst_dist) const {
-   DistanceType result = DistanceType();
-   const T *last = a + size;
-
-   while (a < last) {
-     const DistanceType diff0 = a[0] - b[0];
-     const DistanceType diff1 = a[1] - b[1];
-     const DistanceType diff2 = a[2] - b[2];
-     result += std::sqrt(diff0 * diff0 + diff1 * diff1 + diff2 * diff2);
-     a += 3;
-     b += 3;
-
-     if ((worst_dist > 0) && (result > worst_dist)) {
-       return result;
-     }
-   }
-   return result;
- }
-
- inline DistanceType eval_pair(const T *a, const T *b, size_t size) const {
-   DistanceType result = DistanceType();
-   const T *last = a + size;
-
-   while (a < last) {
-     const DistanceType diff0 = a[0] - b[0];
-     const DistanceType diff1 = a[1] - b[1];
-     const DistanceType diff2 = a[2] - b[2];
-     result += std::sqrt(diff0 * diff0 + diff1 * diff1 + diff2 * diff2);
-     a += 3;
-     b += 3;
-   }
-   return result;
- }
-};
-
 /** Metaprogramming helper traits class for the L1 (Manhattan) metric */
 struct metric_L1 : public Metric {
   template <class T, class DataSource> struct traits {
-    typedef L1_Adaptor<T, DataSource> distance_t;
+    typedef L1_ND_Adaptor<T, DataSource> distance_t;
   };
 };
+
+struct metric_L1_1D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L1_1D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L1_2D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L1_2D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L1_3D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L1_3D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L1_4D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L1_4D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L1_5D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L1_5D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L1_6D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L1_6D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L1_7D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L1_7D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L1_8D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L1_8D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+
 /** Metaprogramming helper traits class for the L2 (Euclidean) metric */
 struct metric_L2 : public Metric {
   template <class T, class DataSource> struct traits {
-    typedef L2_Adaptor<T, DataSource> distance_t;
+    typedef L2_ND_Adaptor<T, DataSource> distance_t;
   };
 };
-/** Metaprogramming helper traits class for the L2_simple (Euclidean) metric */
+
+struct metric_L2_1D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L2_1D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L2_2D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L2_2D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L2_3D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L2_3D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L2_4D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L2_4D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L2_5D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L2_5D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L2_6D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L2_6D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L2_7D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L2_7D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L2_8D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L2_8D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
 struct metric_L2_Simple : public Metric {
   template <class T, class DataSource> struct traits {
     typedef L2_Simple_Adaptor<T, DataSource> distance_t;
   };
 };
-/** Metaprogramming helper traits class for the SO3_InnerProdQuat metric */
-struct metric_SO2 : public Metric {
+
+// /** Metaprogramming helper traits class for the SO3_InnerProdQuat metric */
+// struct metric_SO2 : public Metric {
+//   template <class T, class DataSource> struct traits {
+//     typedef SO2_Adaptor<T, DataSource> distance_t;
+//   };
+// };
+// /** Metaprogramming helper traits class for the SO3_InnerProdQuat metric */
+// struct metric_SO3 : public Metric {
+//   template <class T, class DataSource> struct traits {
+//     typedef SO3_Adaptor<T, DataSource> distance_t;
+//   };
+// };
+
+/** Etienne St-Onge Lpq adaptor */
+struct metric_L21_2D : public Metric {
   template <class T, class DataSource> struct traits {
-    typedef SO2_Adaptor<T, DataSource> distance_t;
-  };
-};
-/** Metaprogramming helper traits class for the SO3_InnerProdQuat metric */
-struct metric_SO3 : public Metric {
-  template <class T, class DataSource> struct traits {
-    typedef SO3_Adaptor<T, DataSource> distance_t;
+    typedef L21_M_2D_Adaptor<T, DataSource> distance_t;
   };
 };
 
-/** Etienne St-Onge L21_MD adaptor */
-struct metric_L21_MD : public Metric {
-  template <class T, class DataSource> struct traits {
-    typedef L21_MD_Adaptor<T, DataSource, T> distance_t;
-  };
-};
-
-/** Etienne St-Onge L21 adaptor */
 struct metric_L21_3D : public Metric {
   template <class T, class DataSource> struct traits {
-    typedef L21_3D_Adaptor<T, DataSource, T> distance_t;
+    typedef L21_3D_Adaptor_row<T, DataSource> distance_t;
   };
 };
 
-struct metric_L21_3D_row : public Metric {
+struct metric_L21_4D : public Metric {
   template <class T, class DataSource> struct traits {
-    typedef L21_3D_Adaptor_row<T, DataSource, T> distance_t;
+    typedef L21_M_4D_Adaptor<T, DataSource> distance_t;
   };
 };
-/** @} */
 
 /** @addtogroup param_grp Parameter structs
  * @{ */
