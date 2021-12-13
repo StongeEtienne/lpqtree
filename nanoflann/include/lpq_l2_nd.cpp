@@ -13,6 +13,9 @@ struct L2_ND {
   typedef T ElementType;
   typedef _DistanceType DistanceType;
 
+  int dist_exponent = 2;
+  int pair_exponent = 2;
+
   template <typename U, typename V>
   inline DistanceType accum_dist(const U a, const V b, const size_t) const {
     return (a - b) * (a - b);

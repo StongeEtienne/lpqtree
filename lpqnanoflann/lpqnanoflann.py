@@ -129,9 +129,6 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
 
     # Results getter with sparse matrices
     def get_dists(self):
-        # if self.metric == "l2":
-        #     return np.sqrt(self.index.getResultDists())
-        # else:
         return self.index.getResultDists()
 
     def get_rows(self):
@@ -174,6 +171,32 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
             self.index.radius_neighbors_idx_dists_full(X_mpts, Data_full, X_full, mpts_dist, radius_full)
         else:
             self.index.radius_neighbors_idx_dists_full_multithreaded(X_mpts, Data_full, X_full, mpts_dist, radius_full, n_jobs)
+
+            def radius_neighbors_full(self, X_mpts, Data_full, X_full, radius_full, n_jobs=1):
+                if X_mpts.ndim == 3:
+                    X_mpts = X_mpts.reshape((X_mpts.shape[0], -1))
+                if Data_full.ndim == 3:
+                    Data_full = Data_full.reshape((Data_full.shape[0], -1))
+                if X_full.ndim == 3:
+                    X_full = X_full.reshape((X_full.shape[0], -1))
+
+                nb_mpts = X_mpts.shape[1]
+                nb_dim = X_full.shape[1]
+
+                assert (X_mpts.shape[1] <= X_full.shape[1])
+
+                assert (X_full.shape[1] == Data_full.shape[1])
+                assert (X_mpts.shape[0] == X_full.shape[0])
+                assert (self.get_data(copy=False).shape[0] == Data_full.shape[0])
+                assert (nb_dim % nb_mpts == 0)
+
+                mpts_dist = radius_full * nb_mpts / nb_dim
+
+                if n_jobs == 1:
+                    self.index.radius_neighbors_idx_dists_full(X_mpts, Data_full, X_full, mpts_dist, radius_full)
+                else:
+                    self.index.radius_neighbors_idx_dists_full_multithreaded(X_mpts, Data_full, X_full, mpts_dist,
+                                                                             radius_full, n_jobs)
 
 
 # Register pickling of non-trivial types

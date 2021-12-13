@@ -154,6 +154,12 @@ struct metric_L21_M_2D : public Metric {
   };
 };
 
+struct metric_L21_1_2D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L21_1_2D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
 struct metric_L21_2_2D : public Metric {
   template <class T, class DataSource> struct traits {
     typedef L21_2_2D_Adaptor<T, DataSource> distance_t;
@@ -203,6 +209,12 @@ struct metric_L21_M_3D : public Metric {
   };
 };
 
+struct metric_L21_1_3D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L21_1_3D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
 struct metric_L21_2_3D : public Metric {
   template <class T, class DataSource> struct traits {
     typedef L21_2_3D_Adaptor<T, DataSource> distance_t;
@@ -229,6 +241,11 @@ struct metric_L21_M_4D : public Metric {
   };
 };
 
+struct metric_L21_1_4D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L21_1_4D_Adaptor<T, DataSource> distance_t;
+  };
+};
 
 struct metric_L21_2_4D : public Metric {
   template <class T, class DataSource> struct traits {
@@ -247,6 +264,15 @@ struct metric_L21_4_4D : public Metric {
     typedef L21_4_4D_Adaptor<T, DataSource> distance_t;
   };
 };
+
+
+
+struct metric_L21_2_3D_r : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L21_2_3D_Adaptor_row<T, DataSource> distance_t;
+  };
+};
+
 
 } // namespace nanoflann
 

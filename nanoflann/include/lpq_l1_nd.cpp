@@ -12,6 +12,9 @@ struct L1_ND {
   typedef T ElementType;
   typedef _DistanceType DistanceType;
 
+  int dist_exponent = 1;
+  int pair_exponent = 1;
+
   template <typename U, typename V>
   inline DistanceType accum_dist(const U a, const V b, const size_t) const {
     return std::abs(a - b);
@@ -62,6 +65,7 @@ struct L1_ND {
     }
     return result;
   }
+
 };
 
 
