@@ -30,7 +30,14 @@ class get_pybind_include(object):
 ext_modules = [
     Extension(
         'nanoflann_ext',
-        ['src/lpqnanoflann.cpp'],
+        ['src/lpqnanoflann.cpp',
+         'nanoflann/include/lpq.cpp',
+         'nanoflann/include/lpq_metric.cpp',
+         'nanoflann/include/lpq_l1_nd.cpp',
+         'nanoflann/include/lpq_l2_nd.cpp',
+         'nanoflann/include/lpq_l21_2d.cpp',
+         'nanoflann/include/lpq_l21_3d.cpp',
+         'nanoflann/include/lpq_l21_4d.cpp'],
         include_dirs=[
             # Path to pybind11 headers
             get_pybind_include(),

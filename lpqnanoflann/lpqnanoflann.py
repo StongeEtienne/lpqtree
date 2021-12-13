@@ -42,13 +42,6 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         if metric not in SUPPORTED_METRIC:
             raise ValueError(f"Supported metrics: {SUPPORTED_METRIC}")
 
-        if metric == "l2":  # nanoflann uses squared distances
-            radius = radius ** 2
-        elif metric == "l22":
-            metric = "l2"
-        elif metric == "l11":
-            metric = "l1"
-
         super().__init__(
             n_neighbors=n_neighbors, radius=radius, leaf_size=leaf_size, metric=metric
         )
@@ -114,8 +107,6 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
 
         if radius is None:
             radius = self.radius
-        elif self.metric == "l2":
-            radius = radius ** 2  # L2 nanoflann internally uses squared distances
 
         if n_jobs == 1:
             if return_distance:
@@ -132,19 +123,16 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
             return
 
         if return_distance:
-            if self.metric == "l2":
-                return self.index.getResultIndicesRow(), self.index.getResultIndicesCol(), np.sqrt(self.index.getResultDists())
-            else:
-                return self.index.getResultIndicesRow(), self.index.getResultIndicesCol(), self.index.getResultDists()
+            return self.index.getResultIndicesRow(), self.index.getResultIndicesCol(), self.index.getResultDists()
 
         return self.index.getResultIndicesRow(), self.index.getResultIndicesCol()
 
     # Results getter with sparse matrices
     def get_dists(self):
-        if self.metric == "l2":
-            return np.sqrt(self.index.getResultDists())
-        else:
-            return self.index.getResultDists()
+        # if self.metric == "l2":
+        #     return np.sqrt(self.index.getResultDists())
+        # else:
+        return self.index.getResultDists()
 
     def get_rows(self):
         return self.index.getResultIndicesRow()
@@ -179,9 +167,6 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         assert(X_mpts.shape[0] == X_full.shape[0])
         assert(self.get_data(copy=False).shape[0] == Data_full.shape[0])
         assert(nb_dim % nb_mpts == 0)
-
-        if self.metric == "l2":
-            radius_full = radius_full ** 2  # L2 nanoflann internally uses squared distances
 
         mpts_dist = radius_full * nb_mpts / nb_dim
 

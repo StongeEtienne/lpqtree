@@ -11,6 +11,7 @@ setup_pybind11(cfg)
 #include <ctime>
 #include <iostream>
 #include <nanoflann.hpp>
+#include <lpq_metric.cpp>
 #include <thread>
 
 using namespace std;
@@ -165,6 +166,7 @@ class KDTree {
   i_np_arr_t getResultIndicesRow();
   i_np_arr_t getResultIndicesCol();
   f_np_arr_t getResultDists();
+  f_np_arr_t getResultSqrDists();
 
   size_t n_neighbors;
   size_t leaf_size;
@@ -174,6 +176,7 @@ class KDTree {
   std::vector<size_t> m_nbmatches;
   std::vector<std::vector<size_t>> m_indices;
   std::vector<std::vector<num_t>> m_dists;
+  bool is_dists_squared;
 };
 
 
@@ -189,182 +192,163 @@ KDTree<num_t>::KDTree(size_t n_neighbors, size_t leaf_size, std::string metric,
 template <typename num_t>
 void KDTree<num_t>::fit(f_np_arr_t points, std::string index_path, size_t ndim) {
   // Dynamic template instantiation for the popular use cases
-  if (points.shape(1) % ndim > 0 )
-    throw std::runtime_error("ERROROROROROROR");
-
+  // separate in   ndim x mdim = total_dim
+  const int total_dim = points.shape(1);
   const int mdim = points.shape(1) / ndim;
 
-  switch (ndim) {
-    case 1:
-      switch (mdim) {
-        case 1:
-          if (metric == "l1")
-            index = new KDTreeNumpyAdaptor<num_t, 1, nanoflann::metric_L1_1D>(points, leaf_size);
-          else if (metric == "l2")
-            index = new KDTreeNumpyAdaptor<num_t, 1, nanoflann::metric_L2_1D>(points, leaf_size);
-          else
-            throw std::runtime_error("only L1 or L2 supported with a 2Dim numpy array");
-          break;
-        case 2:
-          if (metric == "l1")
-            index = new KDTreeNumpyAdaptor<num_t, 2, nanoflann::metric_L1_2D>(points, leaf_size);
-          else if (metric == "l2")
-            index = new KDTreeNumpyAdaptor<num_t, 2, nanoflann::metric_L2_2D>(points, leaf_size);
-          else
-            throw std::runtime_error("only L1 or L2 supported with a 2Dim numpy array");
-          break;
-        case 3:
-          if (metric == "l1")
-            index = new KDTreeNumpyAdaptor<num_t, 3, nanoflann::metric_L1_3D>(points, leaf_size);
-          else if (metric == "l2")
-            index = new KDTreeNumpyAdaptor<num_t, 3, nanoflann::metric_L2_3D>(points, leaf_size);
-          else
-            throw std::runtime_error("only L1 or L2 supported with a 2Dim numpy array");
-          break;
-        case 4:
-          if (metric == "l1")
-            index = new KDTreeNumpyAdaptor<num_t, 4, nanoflann::metric_L1_4D>(points, leaf_size);
-          else if (metric == "l2")
-            index = new KDTreeNumpyAdaptor<num_t, 4, nanoflann::metric_L2_4D>(points, leaf_size);
-          else
-            throw std::runtime_error("only L1 or L2 supported with a 2Dim numpy array");
-          break;
-        case 5:
-          if (metric == "l1")
-            index = new KDTreeNumpyAdaptor<num_t, 5, nanoflann::metric_L1_5D>(points, leaf_size);
-          else if (metric == "l2")
-            index = new KDTreeNumpyAdaptor<num_t, 5, nanoflann::metric_L2_5D>(points, leaf_size);
-          else
-            throw std::runtime_error("only L1 or L2 supported with a 2Dim numpy array");
-          break;
-        case 6:
-          if (metric == "l1")
-            index = new KDTreeNumpyAdaptor<num_t, 6, nanoflann::metric_L1_6D>(points, leaf_size);
-          else if (metric == "l2")
-            index = new KDTreeNumpyAdaptor<num_t, 6, nanoflann::metric_L2_6D>(points, leaf_size);
-          else
-            throw std::runtime_error("only L1 or L2 supported with a 2Dim numpy array");
-          break;
-        default:
-          // Arbitrary dim but works slightly slower
-          if (metric == "l1")
-            index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L1>(points, leaf_size);
-          else if (metric == "l2")
-            index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L2>(points, leaf_size);
-          else
-            throw std::runtime_error("only L1 or L2 supported with a 2Dim numpy array");
-          break;
-      }
-      break;
-    case 2:
-      switch (mdim) {
-        case 1:
-          if (metric == "l21")
-            index = new KDTreeNumpyAdaptor<num_t, 2, nanoflann::metric_L21_2D>(points, leaf_size);
-          else
-            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
-          break;
-        case 2:
-          if (metric == "l21")
-            index = new KDTreeNumpyAdaptor<num_t, 4, nanoflann::metric_L21_2D>(points, leaf_size);
-          else
-            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
-          break;
-        case 3:
-          if (metric == "l21")
-            index = new KDTreeNumpyAdaptor<num_t, 6, nanoflann::metric_L21_2D>(points, leaf_size);
-          else
-            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
-          break;
-        case 4:
-          if (metric == "l21")
-            index = new KDTreeNumpyAdaptor<num_t, 8, nanoflann::metric_L21_2D>(points, leaf_size);
-          else
-            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
-          break;
-        default:
-          if (metric == "l21")
-            index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L21_2D>(points, leaf_size);
-          else
-            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
-          break;
-      }
-      break;
-    case 3:
-      switch (mdim) {
-        case 1:
-          if (metric == "l21")
-            index = new KDTreeNumpyAdaptor<num_t, 3, nanoflann::metric_L21_3D>(points, leaf_size);
-          else
-            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
-          break;
-        case 2:
-          if (metric == "l21")
-            index = new KDTreeNumpyAdaptor<num_t, 6, nanoflann::metric_L21_3D>(points, leaf_size);
-          else
-            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
-          break;
-        case 3:
-          if (metric == "l21")
-            index = new KDTreeNumpyAdaptor<num_t, 9, nanoflann::metric_L21_3D>(points, leaf_size);
-          else
-            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
-          break;
-        case 4:
-          if (metric == "l21")
-            index = new KDTreeNumpyAdaptor<num_t, 12, nanoflann::metric_L21_3D>(points, leaf_size);
-          else
-            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
-          break;
-        default:
-          if (metric == "l21")
-            index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L21_3D>(points, leaf_size);
-          else
-            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
-          break;
-      }
-      break;
-    case 4:
-      switch (mdim) {
-        case 1:
-          if (metric == "l21")
-            index = new KDTreeNumpyAdaptor<num_t, 4, nanoflann::metric_L21_4D>(points, leaf_size);
-          else
-            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
-          break;
-        case 2:
-          if (metric == "l21")
-            index = new KDTreeNumpyAdaptor<num_t, 8, nanoflann::metric_L21_4D>(points, leaf_size);
-          else
-            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
-          break;
-        case 3:
-          if (metric == "l21")
-            index = new KDTreeNumpyAdaptor<num_t, 12, nanoflann::metric_L21_4D>(points, leaf_size);
-          else
-            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
-          break;
-        case 4:
-          if (metric == "l21")
-            index = new KDTreeNumpyAdaptor<num_t, 16, nanoflann::metric_L21_4D>(points, leaf_size);
-          else
-            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
-          break;
-        default:
-          if (metric == "l21")
-            index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L21_4D>(points, leaf_size);
-          else
-            throw std::runtime_error("only L21 supported with a 3Dim numpy array");
-          break;
-      }
-      break;
-    default:
-      if (metric == "l21")
-        throw std::runtime_error(" l21 is only supported with 2D, 3D or 4D points (from numpy.shape[3])");
-      else if (metric == "l12")
-        throw std::runtime_error(" l12 is not yet supported");
-      break;
+  if (total_dim % ndim > 0 )
+    throw std::runtime_error("Error: total_dim != nb_values * ndim");
+
+
+  if (metric == "l1" || metric == "l11") {
+    this->is_dists_squared = false;
+    switch (total_dim) {
+      case 1:
+        index = new KDTreeNumpyAdaptor<num_t, 1, nanoflann::metric_L1_1D>(points, leaf_size);
+        break;
+      case 2:
+        index = new KDTreeNumpyAdaptor<num_t, 2, nanoflann::metric_L1_2D>(points, leaf_size);
+        break;
+      case 3:
+        index = new KDTreeNumpyAdaptor<num_t, 3, nanoflann::metric_L1_3D>(points, leaf_size);
+        break;
+      case 4:
+        index = new KDTreeNumpyAdaptor<num_t, 4, nanoflann::metric_L1_4D>(points, leaf_size);
+        break;
+      case 5:
+        index = new KDTreeNumpyAdaptor<num_t, 5, nanoflann::metric_L1_5D>(points, leaf_size);
+        break;
+      case 6:
+        index = new KDTreeNumpyAdaptor<num_t, 6, nanoflann::metric_L1_6D>(points, leaf_size);
+        break;
+      case 7:
+        index = new KDTreeNumpyAdaptor<num_t, 7, nanoflann::metric_L1_7D>(points, leaf_size);
+        break;
+      case 8:
+        index = new KDTreeNumpyAdaptor<num_t, 8, nanoflann::metric_L1_8D>(points, leaf_size);
+        break;
+      default:
+        index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L1_ND>(points, leaf_size);
+        break;
+    }
   }
+  else if (metric == "l2" || metric == "l22") {
+    this->is_dists_squared = true;
+    switch (total_dim) {
+      case 1:
+        index = new KDTreeNumpyAdaptor<num_t, 1, nanoflann::metric_L2_1D>(points, leaf_size);
+        break;
+      case 2:
+        index = new KDTreeNumpyAdaptor<num_t, 2, nanoflann::metric_L2_2D>(points, leaf_size);
+        break;
+      case 3:
+        index = new KDTreeNumpyAdaptor<num_t, 3, nanoflann::metric_L2_3D>(points, leaf_size);
+        break;
+      case 4:
+        index = new KDTreeNumpyAdaptor<num_t, 4, nanoflann::metric_L2_4D>(points, leaf_size);
+        break;
+      case 5:
+        index = new KDTreeNumpyAdaptor<num_t, 5, nanoflann::metric_L2_5D>(points, leaf_size);
+        break;
+      case 6:
+        index = new KDTreeNumpyAdaptor<num_t, 6, nanoflann::metric_L2_6D>(points, leaf_size);
+        break;
+      case 7:
+        index = new KDTreeNumpyAdaptor<num_t, 7, nanoflann::metric_L2_7D>(points, leaf_size);
+        break;
+      case 8:
+        index = new KDTreeNumpyAdaptor<num_t, 8, nanoflann::metric_L2_8D>(points, leaf_size);
+        break;
+      default:
+        index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L2_ND>(points, leaf_size);
+        break;
+    }
+  }
+  else if (metric == "l21") {
+    this->is_dists_squared = false;
+    switch (ndim) {
+      case 1:
+        throw std::runtime_error("Error: L21 with ndim==1, use L1 distance");
+        break;
+      case 2:
+        switch (mdim) {
+          case 1:
+            throw std::runtime_error("Error: L21 with mdim==1, use L2 distance");
+            break;
+          case 2:
+            index = new KDTreeNumpyAdaptor<num_t, 4, nanoflann::metric_L21_2_2D>(points, leaf_size);
+            break;
+          case 3:
+            index = new KDTreeNumpyAdaptor<num_t, 6, nanoflann::metric_L21_3_2D>(points, leaf_size);
+            break;
+          case 4:
+            index = new KDTreeNumpyAdaptor<num_t, 8, nanoflann::metric_L21_4_2D>(points, leaf_size);
+            break;
+          case 5:
+            index = new KDTreeNumpyAdaptor<num_t, 10, nanoflann::metric_L21_5_2D>(points, leaf_size);
+            break;
+          case 6:
+            index = new KDTreeNumpyAdaptor<num_t, 12, nanoflann::metric_L21_6_2D>(points, leaf_size);
+            break;
+          case 7:
+            index = new KDTreeNumpyAdaptor<num_t, 14, nanoflann::metric_L21_7_2D>(points, leaf_size);
+            break;
+          case 8:
+            index = new KDTreeNumpyAdaptor<num_t, 16, nanoflann::metric_L21_8_2D>(points, leaf_size);
+            break;
+          default:
+            index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L21_M_2D>(points, leaf_size);
+            break;
+        }
+        break;
+      case 3:
+        switch (mdim) {
+          case 1:
+            throw std::runtime_error("Error: L21 with mdim==1, use L2 distance");
+            break;
+          case 2:
+            index = new KDTreeNumpyAdaptor<num_t, 6, nanoflann::metric_L21_2_3D>(points, leaf_size);
+            break;
+          case 3:
+            index = new KDTreeNumpyAdaptor<num_t, 9, nanoflann::metric_L21_3_3D>(points, leaf_size);
+            break;
+          case 4:
+            index = new KDTreeNumpyAdaptor<num_t, 12, nanoflann::metric_L21_4_3D>(points, leaf_size);
+            break;
+          default:
+            index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L21_M_3D>(points, leaf_size);
+            break;
+        }
+        break;
+      case 4:
+        switch (mdim) {
+          case 1:
+            throw std::runtime_error("Error: L21 with mdim==1, use L2 distance");
+            break;
+          case 2:
+            index = new KDTreeNumpyAdaptor<num_t, 8, nanoflann::metric_L21_2_4D>(points, leaf_size);
+            break;
+          case 3:
+            index = new KDTreeNumpyAdaptor<num_t, 12, nanoflann::metric_L21_3_4D>(points, leaf_size);
+            break;
+          case 4:
+            index = new KDTreeNumpyAdaptor<num_t, 16, nanoflann::metric_L21_4_4D>(points, leaf_size);
+            break;
+          default:
+            index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L21_M_4D>(points, leaf_size);
+            break;
+        }
+        break;
+      default:
+        throw std::runtime_error("l21 is only supported with 2D, 3D or 4D points (from numpy.shape[3])");
+        break;
+    }
+  }
+  else if (metric == "l12") {
+    this->is_dists_squared = true;
+    throw std::runtime_error("L12 is not yet supported");
+  }
+
   if (index_path.size()) {
     index->loadIndex(index_path);
   } else {
@@ -408,7 +392,8 @@ void KDTree<num_t>::radius_neighbors_idx(
   const size_t n_points = mat.shape(0);
   const size_t dim = mat.shape(1);
 
-  const num_t search_radius = static_cast<num_t>(radius);
+  const num_t search_radius = this->is_dists_squared ? radius*radius : radius;
+
   this->m_nbmatches.resize(n_points);
   this->m_indices.resize(n_points);
   this->m_dists.clear();
@@ -427,7 +412,7 @@ void KDTree<num_t>::radius_neighbors_idx_dists(f_np_arr_t array, num_t radius) {
   const size_t n_points = mat.shape(0);
   const size_t dim = mat.shape(1);
 
-  const num_t search_radius = static_cast<num_t>(radius);
+  const num_t search_radius = this->is_dists_squared ? radius*radius : radius;
   std::vector<std::pair<size_t, num_t>> ret_matches;
   this->m_nbmatches.resize(n_points);
   this->m_indices.resize(n_points);
@@ -456,7 +441,7 @@ void KDTree<num_t>::radius_neighbors_idx_multithreaded(f_np_arr_t array, num_t r
   const size_t n_points = mat.shape(0);
   const size_t dim = mat.shape(1);
 
-  const num_t search_radius = static_cast<num_t>(radius);
+  const num_t search_radius = this->is_dists_squared ? radius*radius : radius;
 
   this->m_nbmatches.resize(n_points);
   this->m_indices.resize(n_points);
@@ -494,7 +479,7 @@ void KDTree<num_t>::radius_neighbors_idx_dists_multithreaded(f_np_arr_t array, n
   const size_t n_points = mat.shape(0);
   const size_t dim = mat.shape(1);
 
-  const num_t search_radius = static_cast<num_t>(radius);
+  const num_t search_radius = this->is_dists_squared ? radius*radius : radius;
   std::vector<std::pair<size_t, num_t>> ret_matches;
 
   this->m_nbmatches.resize(n_points);
@@ -642,10 +627,50 @@ pybind11::array_t<num_t, pybind11::array::c_style | pybind11::array::forcecast> 
   size_t d = 0;
 
   // reformating in a single array
-  for (size_t i = 0; i < n_points; ++i) {
-    const size_t nb_match = this->m_nbmatches[i];
-    for (size_t j = 0; j < nb_match; ++j) {
-      (*seq_ptr)[d++] = this->m_dists[i][j];
+  if(this->is_dists_squared){
+    for (size_t i = 0; i < n_points; ++i) {
+      const size_t nb_match = this->m_nbmatches[i];
+      for (size_t j = 0; j < nb_match; ++j) {
+        (*seq_ptr)[d++] = std::sqrt(this->m_dists[i][j]);
+      }
+    }
+  }
+  else{
+    for (size_t i = 0; i < n_points; ++i) {
+      const size_t nb_match = this->m_nbmatches[i];
+      for (size_t j = 0; j < nb_match; ++j) {
+        (*seq_ptr)[d++] = this->m_dists[i][j];
+      }
+    }
+  }
+
+  auto capsule = pybind11::capsule(seq_ptr, [](void* p) { delete reinterpret_cast<std::vector<num_t>*>(p); });
+  return pybind11::array(seq_ptr->size(),seq_ptr->data(), capsule);
+}
+
+
+template <typename num_t>
+pybind11::array_t<num_t, pybind11::array::c_style | pybind11::array::forcecast> KDTree<num_t>::getResultSqrDists(){
+  const size_t n_points = this->m_nbmatches.size();
+  const size_t total_nb_match = std::accumulate(this->m_nbmatches.begin(), this->m_nbmatches.end(), 0);
+  std::vector<num_t>* seq_ptr = new std::vector<num_t>(total_nb_match);
+  size_t d = 0;
+
+  // reformating in a single array
+  if(this->is_dists_squared){
+    for (size_t i = 0; i < n_points; ++i) {
+      const size_t nb_match = this->m_nbmatches[i];
+      for (size_t j = 0; j < nb_match; ++j) {
+        (*seq_ptr)[d++] = this->m_dists[i][j];
+      }
+    }
+  }
+  else{
+    for (size_t i = 0; i < n_points; ++i) {
+      const size_t nb_match = this->m_nbmatches[i];
+      for (size_t j = 0; j < nb_match; ++j) {
+        (*seq_ptr)[d++] = this->m_dists[i][j]*this->m_dists[i][j];
+      }
     }
   }
 
@@ -668,7 +693,9 @@ void KDTree<num_t>::radius_neighbors_idx_dists_full(f_np_arr_t array, f_np_arr_t
 
   num_t full_dist;
 
-  const num_t search_radius = static_cast<num_t>(radius);
+  const num_t search_radius = this->is_dists_squared ? radius*radius : radius;
+  const num_t search_radius_full = this->is_dists_squared ? radius_full*radius_full : radius_full;
+
   std::vector<std::pair<size_t, num_t>> ret_matches;
   this->m_nbmatches.resize(n_points);
   this->m_indices.resize(n_points);
@@ -681,7 +708,7 @@ void KDTree<num_t>::radius_neighbors_idx_dists_full(f_np_arr_t array, f_np_arr_t
     for (size_t j = 0; j < nb_match; j++) {
       full_dist = index->eval_pair(&query_full[i * full_dim], &query_fullt[ret_matches[j].first * full_dim], full_dim);
 
-      if (full_dist < radius_full){
+      if (full_dist < search_radius_full){
         this->m_indices[i].push_back(ret_matches[j].first);
         this->m_dists[i].push_back(full_dist);
       }
@@ -706,7 +733,8 @@ void KDTree<num_t>::radius_neighbors_idx_dists_full_multithreaded(f_np_arr_t arr
 
   const size_t full_dim = fmat.shape(1);
 
-  const num_t search_radius = static_cast<num_t>(radius);
+  const num_t search_radius = this->is_dists_squared ? radius*radius : radius;
+  const num_t search_radius_full = this->is_dists_squared ? radius_full*radius_full : radius_full;
 
   this->m_nbmatches.resize(n_points);
   this->m_indices.resize(n_points);
@@ -723,7 +751,7 @@ void KDTree<num_t>::radius_neighbors_idx_dists_full_multithreaded(f_np_arr_t arr
       for (size_t j = 0; j < nb_match; j++) {
         full_dist = index->eval_pair(&query_full[i * full_dim], &query_fullt[ret_matches[j].first * full_dim], full_dim);
 
-        if (full_dist < radius_full){
+        if (full_dist < search_radius_full){
           this->m_indices[i].push_back(ret_matches[j].first);
           this->m_dists[i].push_back(full_dist);
         }
@@ -765,6 +793,7 @@ PYBIND11_MODULE(nanoflann_ext, m) {
       .def("getResultIndicesRow", &KDTree<float>::getResultIndicesRow)
       .def("getResultIndicesCol", &KDTree<float>::getResultIndicesCol)
       .def("getResultDists", &KDTree<float>::getResultDists)
+      .def("getResultSqrDists", &KDTree<float>::getResultSqrDists)
       .def("save_index", &KDTree<float>::save_index);
 
   pybind11::class_<KDTree<double>>(m, "KDTree64")
@@ -784,6 +813,7 @@ PYBIND11_MODULE(nanoflann_ext, m) {
       .def("getResultIndicesRow", &KDTree<double>::getResultIndicesRow)
       .def("getResultIndicesCol", &KDTree<double>::getResultIndicesCol)
       .def("getResultDists", &KDTree<double>::getResultDists)
+      .def("getResultSqrDists", &KDTree<double>::getResultSqrDists)
       .def("save_index", &KDTree<double>::save_index);
 
 }

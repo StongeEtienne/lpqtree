@@ -1,8 +1,8 @@
 
 
 
-#ifndef LPQ_HPP_
-#define LPQ_HPP_
+#ifndef LPQ_CPP_
+#define LPQ_CPP_
 
 
 #include <algorithm>
@@ -82,4 +82,4 @@ template <typename T> T pi_const() {
 //   }
 // };
 
-#endif /* LPQ_HPP_ */
+#endif /* LPQ_CPP_ */

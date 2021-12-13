@@ -48,8 +48,9 @@ def test_kdtree_l2_nd_f32():
 
 
 def test_kdtree_l21_nd_f32():
-    for m in range(1, 10):
+    for m in range(2, 10):
         for n in [2, 3, 4]:
+            print(("l21", m, n))
             vts1 = np.random.rand(nb_mts, m, n)
             vts2 = np.random.rand(nb_mts, m, n)
             kdtree_test(vts1, vts2, p=2, q=1, tree_m="l21", dtype=np.float32)
