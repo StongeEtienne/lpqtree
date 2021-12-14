@@ -14,7 +14,7 @@ struct L21_M_2D {
   typedef T ElementType;
   typedef _DistanceType DistanceType;
 
-  //int dist_exponent = 1; varies
+  //int dist_exponent = 1; for M > 1
   int pair_exponent = 1;
 
   template <typename U, typename V>
@@ -103,7 +103,7 @@ struct L21_M_2D_Adaptor : L21_M_2D<T, DataSource, _DistanceType> {
   }
 };
 
-//1x2D
+//1x2D Equivalent to L2
 template <class T, class DataSource, typename _DistanceType = T>
 struct L21_1_2D_Adaptor : L21_M_2D<T, DataSource, _DistanceType> {
   typedef T ElementType;
@@ -114,18 +114,25 @@ struct L21_1_2D_Adaptor : L21_M_2D<T, DataSource, _DistanceType> {
 
   L21_1_2D_Adaptor(const DataSource &_data_source) : data_source(_data_source) {}
 
+  template <typename U, typename V>
+  inline DistanceType accum_dist(const U a, const V b, const size_t) const{ //override
+    // equivalent to L2
+    DistanceType diff = (a - b);
+    return diff*diff;
+  }
+
   inline DistanceType evalMetric(const T *a, const size_t b_idx, size_t size, DistanceType worst_dist) const {
     // equivalent to L2_2D
     const DistanceType diff0 = a[0] - data_source.kdtree_get_pt(b_idx, 0);
     const DistanceType diff1 = a[1] - data_source.kdtree_get_pt(b_idx, 1);
-    return (diff0*diff0 + diff1*diff1);
+    return diff0*diff0 + diff1*diff1;
   }
 
   inline DistanceType evalMetric(const T *a, const size_t b_idx, size_t size) const {
     // equivalent to L2_2D
     const DistanceType diff0 = a[0] - data_source.kdtree_get_pt(b_idx, 0);
     const DistanceType diff1 = a[1] - data_source.kdtree_get_pt(b_idx, 1);
-    return (diff0*diff0 + diff1*diff1);
+    return diff0*diff0 + diff1*diff1;
   }
 };
 
