@@ -1,8 +1,8 @@
 import pytest
 
 import numpy as np
-import lpqnanoflann
-import lpqnanoflann.lpqpydist as lpqdist
+import lpqtree
+import lpqtree.lpqpydist as lpqdist
 
 EPS = 1.0e-5
 MAXDIST = 9.9e32
@@ -20,7 +20,7 @@ def kdtree_test(v1, v2, p, q, tree_m):
     step = (max_v - min_v) / NB_RADIUS
 
     # Test for all pairs with Max float distance
-    lpq_tree = lpqnanoflann.KDTree(metric=tree_m, radius=MAXDIST)
+    lpq_tree = lpqtree.KDTree(metric=tree_m, radius=MAXDIST)
     lpq_tree.fit(v2)
     lpq_tree.radius_neighbors(v1, MAXDIST, return_distance=True, no_return=True)
     lpq_tree_res = lpq_tree.get_coo_matrix()
@@ -30,7 +30,7 @@ def kdtree_test(v1, v2, p, q, tree_m):
     for r in np.arange(min_v, max_v, step):
         val_mask = lpq_res < r
         values = lpq_res[val_mask]
-        lpq_tree = lpqnanoflann.KDTree(metric=tree_m, radius=r)
+        lpq_tree = lpqtree.KDTree(metric=tree_m, radius=r)
         lpq_tree.fit(v2)
         lpq_tree.radius_neighbors(v1, r, return_distance=True, no_return=True)
         lpq_tree_mtx = lpq_tree.get_coo_matrix()

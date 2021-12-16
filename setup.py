@@ -4,7 +4,7 @@ import sys
 import setuptools
 import subprocess
 
-__version__ = '0.0.1a1'
+__version__ = '0.0.2'
 
 
 class get_pybind_include(object):
@@ -98,6 +98,10 @@ class BuildExt(build_ext):
         ct = self.compiler.compiler_type
         opts = self.c_opts.get(ct, [])
         link_opts = self.l_opts.get(ct, [])
+        opts.append("-ffast-math")
+        opts.append("-msse2")
+        opts.append("-mfpmath=sse")
+        opts.append("-march=native")
         if ct == 'unix':
             if '-Wstrict-prototypes' in self.compiler.compiler_so:
                 self.compiler.compiler_so.remove('-Wstrict-prototypes')
@@ -115,15 +119,15 @@ class BuildExt(build_ext):
 
 
 setup(
-    name='lpqnanoflann',
+    name='lpqtree',
     version=__version__,
     author='stongeetienne',
     author_email='at.gmail.com',
-    url='https://github.com/StongeEtienne/lpq-nanoflann',
-    description='Lpq Nanoflann with Python wrapper',
+    url='https://github.com/StongeEtienne/lpqtree',
+    description='Lpq KD Tree, adapted from Nanoflann with Python wrapper',
     long_description='',
     ext_modules=ext_modules,
-    packages=['lpqnanoflann'],
+    packages=['lpqtree'],
     install_requires=['pybind11>=2.4', 'scikit-learn>=0.19'],
     setup_requires=['pybind11>=2.4'],
     cmdclass={'build_ext': BuildExt},

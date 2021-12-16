@@ -1,7 +1,7 @@
 import pytest
 
 import numpy as np
-import lpqnanoflann.lpqpydist as lpqdist
+import lpqtree.lpqpydist as lpqdist
 
 # testing values
 NBMTS = 10

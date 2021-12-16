@@ -1,7 +1,7 @@
 import pytest
 
 import numpy as np
-import lpqnanoflann.lpqpydist as lpqdist
+import lpqtree.lpqpydist as lpqdist
 
 
 # testing values
@@ -13,8 +13,6 @@ a = np.array([[[2.0, 2.0, -2.0, 2.0],
                [1.0, -2.0, 2.0, 4.0]]])
 l1_a = np.array([[8.0, 0.0, 1.0], [4.0, 2.0, 9.0]])
 l2_a = np.array([[4.0, 0.0, 1.0], [4.0, np.sqrt(2.0), 5.0]])
-
-
 
 # scaling factor
 sc = np.pi
@@ -184,7 +182,6 @@ def test_lpq_switch():
 
     for p in range(1, 100):
         for q in range(1, 100):
-            norm_str = "l" + str(p) + str(q)
             lpq_res = lpqdist.lpq(a, p=p, q=q)
             assert np.allclose(lpqdist.lpq_switch(a, p=p, q=q), lpq_res), "Lpq_switch test failed"
             assert np.allclose(lpqdist.lpq_switch(a*0.0, p=p, q=q), lpq_res*0.0), "Lpq_switch zero failed"
