@@ -128,7 +128,7 @@ setup(
     long_description='',
     ext_modules=ext_modules,
     packages=['lpqtree'],
-    install_requires=['pybind11>=2.4', 'scikit-learn>=0.19'],
+    install_requires=['pybind11>=2.4', 'scikit-learn>=1.0'],
     setup_requires=['pybind11>=2.4'],
     cmdclass={'build_ext': BuildExt},
     zip_safe=False,
