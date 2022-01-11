@@ -147,9 +147,16 @@ def test_lpq():
             assert np.allclose(lpqdist.lpq(-a, p=p, q=q), linalg_res), "Lp linalg negative failed"
 
 
+def test_l1m():
+    assert np.allclose(lpqdist.l1m(a), lpqdist.l11(a)/a.shape[-2]), "L2m test failed"
+    assert np.allclose(lpqdist.l1m(a*0.0), lpqdist.l1m(a)*0.0), "L2m zero failed"
+    assert np.allclose(lpqdist.l1m(a*sc), lpqdist.l1m(a)*sc), "L2m scaling failed"
+    assert np.allclose(lpqdist.l1m(-a), lpqdist.l1m(a)), "L2m zero failed"
+
+
 def test_l2m():
     assert np.allclose(lpqdist.l2m(a), lpqdist.l21(a)/a.shape[-2]), "L2m test failed"
-    assert np.allclose(lpqdist.l2m(a)*0.0, lpqdist.l2m(a)*0.0), "L2m zero failed"
+    assert np.allclose(lpqdist.l2m(a*0.0), lpqdist.l2m(a)*0.0), "L2m zero failed"
     assert np.allclose(lpqdist.l2m(a*sc), lpqdist.l2m(a)*sc), "L2m scaling failed"
     assert np.allclose(lpqdist.l2m(-a), lpqdist.l2m(a)), "L2m zero failed"
 
@@ -172,7 +179,11 @@ def test_lpq_switch():
     assert np.allclose(lpqdist.lpq_switch(a, p=2, q=1), lpqdist.l21(a)), "Lpq_switch, p=2 q=1 test failed"
     assert np.allclose(lpqdist.lpq_switch(a, p=2, q=2), lpqdist.l22(a)), "Lpq_switch, p=2 q=2 test failed"
 
+    assert np.allclose(lpqdist.lpq_switch(a, p=1, q="m"), lpqdist.l1m(a)), "Lpq_switch, p=1 mean test failed"
+    assert np.allclose(lpqdist.lpq_switch(a, p=2, q="m"), lpqdist.l2m(a)), "Lpq_switch, p=2 mean test failed"
+
     for p in range(1, 100):
+        assert np.allclose(lpqdist.lpq_switch(a, p=p, q="m"), lpqdist.lpm(a, p=p)), "Lpq_switch, mean test failed"
         assert np.allclose(lpqdist.lpq_switch(a, p=p, q=1), lpqdist.lp1(a, p=p)), "Lpq_switch, p=1 test failed"
         assert np.allclose(lpqdist.lpq_switch(a, p=p, q=2), lpqdist.lp2(a, p=p)), "Lpq_switch, p=2 test failed"
 
@@ -191,6 +202,8 @@ def test_lpq_switch():
 
 def test_lpq_str_switch():
     for p in range(1, 10):
+        norm_str = "l" + str(p) + "m"
+        assert np.allclose(lpqdist.lpq_str_switch(a, norm=norm_str), lpqdist.lpm(a, p=p)), "Lpm_switch test failed"
         for q in range(1, 10):
             norm_str = "l" + str(p) + str(q)
             lpq_res = lpqdist.lpq(a, p=p, q=q)
