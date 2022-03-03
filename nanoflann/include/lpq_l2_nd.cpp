@@ -18,7 +18,8 @@ struct L2_ND {
 
   template <typename U, typename V>
   inline DistanceType accum_dist(const U a, const V b, const size_t) const {
-    return (a - b) * (a - b);
+    const DistanceType diff = a - b;
+    return diff * diff;
   }
 
   inline DistanceType eval_pair(const T *a, const T *b, size_t size, DistanceType worst_dist) const {
