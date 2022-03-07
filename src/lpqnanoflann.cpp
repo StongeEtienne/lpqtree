@@ -362,12 +362,91 @@ void KDTree<num_t>::fit(f_np_arr_t points, std::string index_path, size_t ndim) 
         }
         break;
       default:
-        throw std::runtime_error("l21 is only supported with 2D, 3D or 4D points (from numpy.shape[3])");
+        throw std::runtime_error("L21 is only supported with 2D, 3D or 4D points (from numpy.shape[3])");
         break;
     }
   }
   else if (metric == "l12") {
-    throw std::runtime_error("L12 is not yet supported");
+    switch (ndim) {
+      case 1:
+        throw std::runtime_error("Error: L21 with ndim==1, use L2 distance");
+        break;
+      case 2:
+        switch (mdim) {
+          case 1:
+            index = new KDTreeNumpyAdaptor<num_t, 2, nanoflann::metric_L12_1_2D>(points, leaf_size);
+            break;
+          case 2:
+            index = new KDTreeNumpyAdaptor<num_t, 4, nanoflann::metric_L12_2_2D>(points, leaf_size);
+            break;
+          case 3:
+            index = new KDTreeNumpyAdaptor<num_t, 6, nanoflann::metric_L12_3_2D>(points, leaf_size);
+            break;
+          case 4:
+            index = new KDTreeNumpyAdaptor<num_t, 8, nanoflann::metric_L12_4_2D>(points, leaf_size);
+            break;
+          case 5:
+            index = new KDTreeNumpyAdaptor<num_t, 10, nanoflann::metric_L12_5_2D>(points, leaf_size);
+            break;
+          case 6:
+            index = new KDTreeNumpyAdaptor<num_t, 12, nanoflann::metric_L12_6_2D>(points, leaf_size);
+            break;
+          case 7:
+            index = new KDTreeNumpyAdaptor<num_t, 14, nanoflann::metric_L12_7_2D>(points, leaf_size);
+            break;
+          case 8:
+            index = new KDTreeNumpyAdaptor<num_t, 16, nanoflann::metric_L12_8_2D>(points, leaf_size);
+            break;
+          default:
+            index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L12_M_2D>(points, leaf_size);
+            break;
+        }
+        break;
+      case 3:
+        switch (mdim) {
+          case 1:
+            index = new KDTreeNumpyAdaptor<num_t, 3, nanoflann::metric_L12_1_3D>(points, leaf_size);
+            break;
+          case 2:
+            index = new KDTreeNumpyAdaptor<num_t, 6, nanoflann::metric_L12_2_3D>(points, leaf_size);
+            break;
+          case 3:
+            index = new KDTreeNumpyAdaptor<num_t, 9, nanoflann::metric_L12_3_3D>(points, leaf_size);
+            break;
+          case 4:
+            index = new KDTreeNumpyAdaptor<num_t, 12, nanoflann::metric_L12_4_3D>(points, leaf_size);
+            break;
+          default:
+            index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L12_M_3D>(points, leaf_size);
+            break;
+        }
+        break;
+      case 4:
+        switch (mdim) {
+          case 1:
+            index = new KDTreeNumpyAdaptor<num_t, 4, nanoflann::metric_L12_1_4D>(points, leaf_size);
+            break;
+          case 2:
+            index = new KDTreeNumpyAdaptor<num_t, 8, nanoflann::metric_L12_2_4D>(points, leaf_size);
+            break;
+          case 3:
+            index = new KDTreeNumpyAdaptor<num_t, 12, nanoflann::metric_L12_3_4D>(points, leaf_size);
+            break;
+          case 4:
+            index = new KDTreeNumpyAdaptor<num_t, 16, nanoflann::metric_L12_4_4D>(points, leaf_size);
+            break;
+          default:
+            index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L12_M_4D>(points, leaf_size);
+            break;
+        }
+        break;
+      default:
+        throw std::runtime_error("L12 is only supported with 2D, 3D or 4D points (from numpy.shape[3])");
+        break;
+    }
+  }
+  else {
+    throw std::runtime_error( metric + " is not yet supported");
   }
 
   if (index_path.size()) {

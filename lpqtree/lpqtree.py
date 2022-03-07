@@ -11,7 +11,7 @@ from scipy.sparse import csr_matrix, coo_matrix
 
 SUPPORTED_TYPES = [np.float32, np.float64]
 SUPPORTED_DIM = [2, 3]
-SUPPORTED_METRIC = ["l1", "l2", "l11", "l22", "l21"]
+SUPPORTED_METRIC = ["l1", "l2", "l11", "l22", "l21", "l12"]
 
 
 def pickler(c):

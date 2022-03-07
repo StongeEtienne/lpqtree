@@ -24,6 +24,7 @@ def kdtree_test(v1, v2, p, q, tree_m):
     lpq_tree.fit(v2)
     lpq_tree.radius_neighbors(v1, MAXDIST, return_distance=True, no_return=True)
     lpq_tree_res = lpq_tree.get_coo_matrix()
+
     assert np.allclose(lpq_res, lpq_tree_res.A), "test dist mtx"
 
     # Test at various radius
@@ -69,6 +70,14 @@ def test_kdtree_l2_nd_f32():
             kdtree_test(vts1, vts2, p=2, q=2, tree_m="l22")
 
 
+def test_kdtree_l12_nd_f32():
+    for m in range(1, 10):
+        for n in [2, 3, 4]:
+            vts1 = np.random.rand(NB_MTX, m, n).astype(np.float32)
+            vts2 = np.random.rand(NB_MTX, m, n).astype(np.float32)
+            kdtree_test(vts1, vts2, p=1, q=2, tree_m="l12")
+
+
 def test_kdtree_l21_nd_f32():
     for m in range(1, 10):
         for n in [2, 3, 4]:
@@ -95,9 +104,18 @@ def test_kdtree_l2_nd_f64():
             kdtree_test(vts1, vts2, p=2, q=2, tree_m="l22")
 
 
+def test_kdtree_l12_nd_f64():
+    for m in range(1, 10):
+        for n in [2, 3, 4]:
+            vts1 = np.random.rand(NB_MTX, m, n).astype(np.float64)
+            vts2 = np.random.rand(NB_MTX, m, n).astype(np.float64)
+            kdtree_test(vts1, vts2, p=1, q=2, tree_m="l12")
+
+
 def test_kdtree_l21_nd_f64():
     for m in range(1, 10):
         for n in [2, 3, 4]:
             vts1 = np.random.rand(NB_MTX, m, n).astype(np.float64)
             vts2 = np.random.rand(NB_MTX, m, n).astype(np.float64)
             kdtree_test(vts1, vts2, p=2, q=1, tree_m="l21")
+
