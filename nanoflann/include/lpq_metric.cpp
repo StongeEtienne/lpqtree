@@ -270,12 +270,11 @@ struct metric_L21_4_4D : public Metric {
 };
 
 
-
-struct metric_L21_2_3D_r : public Metric {
-  template <class T, class DataSource> struct traits {
-    typedef L21_2_3D_Adaptor_row<T, DataSource> distance_t;
-  };
-};
+//struct metric_L21_2_3D_r : public Metric {
+//  template <class T, class DataSource> struct traits {
+//    typedef L21_2_3D_Adaptor_row<T, DataSource> distance_t;
+//  };
+//};
 
 
 // L12: N x 2D
