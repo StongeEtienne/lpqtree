@@ -10,6 +10,13 @@
 #include <lpq_l21_3d.cpp>
 #include <lpq_l21_4d.cpp>
 
+#include <lpq_l12_2d.cpp>
+#include <lpq_l12_3d.cpp>
+#include <lpq_l12_4d.cpp>
+
+#include <lpq_lp_nd.cpp>
+#include <lpq_lpq_mnd.cpp>
+
 namespace nanoflann {
 /** @addtogroup metric_grp Metric (distance) classes
  * @{ */
@@ -266,12 +273,144 @@ struct metric_L21_4_4D : public Metric {
 };
 
 
+//struct metric_L21_2_3D_r : public Metric {
+//  template <class T, class DataSource> struct traits {
+//    typedef L21_2_3D_Adaptor_row<T, DataSource> distance_t;
+//  };
+//};
 
-struct metric_L21_2_3D_r : public Metric {
+
+// L12: N x 2D
+struct metric_L12_M_2D : public Metric {
   template <class T, class DataSource> struct traits {
-    typedef L21_2_3D_Adaptor_row<T, DataSource> distance_t;
+    typedef L12_M_2D_Adaptor<T, DataSource> distance_t;
   };
 };
+
+struct metric_L12_1_2D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L12_1_2D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L12_2_2D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L12_2_2D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L12_3_2D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L12_3_2D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L12_4_2D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L12_4_2D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L12_5_2D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L12_5_2D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L12_6_2D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L12_6_2D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L12_7_2D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L12_7_2D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L12_8_2D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L12_8_2D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+
+// L12: N x 3D
+struct metric_L12_M_3D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L12_M_3D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L12_1_3D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L12_1_3D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L12_2_3D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L12_2_3D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L12_3_3D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L12_3_3D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L12_4_3D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L12_4_3D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+// L12: N x 4D
+struct metric_L12_M_4D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L12_M_4D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L12_1_4D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L12_1_4D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L12_2_4D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L12_2_4D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L12_3_4D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L12_3_4D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+struct metric_L12_4_4D : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L12_4_4D_Adaptor<T, DataSource> distance_t;
+  };
+};
+
+
+struct metric_Lp_ND : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef Lp_ND_Adaptor<T, DataSource, T> distance_t;
+  };
+};
+
+struct metric_Lpq_MND : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef Lpq_MND_Adaptor<T, DataSource> distance_t;
+  };
+};
+
 
 
 } // namespace nanoflann

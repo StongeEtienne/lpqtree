@@ -59,7 +59,7 @@ def lpq(mts, p, q):
     return np.sum(lp(mts, p=p, axis=-1, keepdims=False)**q, axis=-1, keepdims=False)**inv_q
 
 
-# Matrix norm operator with mean instead of sum
+# Matrix norm operator with mean instead of sum (homogeneous to lp1)
 def l1m(mts):
     return np.mean(l1(mts, axis=-1, keepdims=False), axis=-1, keepdims=False)
 

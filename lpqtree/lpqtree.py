@@ -11,7 +11,7 @@ from scipy.sparse import csr_matrix, coo_matrix
 
 SUPPORTED_TYPES = [np.float32, np.float64]
 SUPPORTED_DIM = [2, 3]
-SUPPORTED_METRIC = ["l1", "l2", "l11", "l22", "l21"]
+# SUPPORTED_METRIC = ["lpq"] where p and q are any digit
 
 
 def pickler(c):
@@ -39,8 +39,8 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
     def __init__(self, n_neighbors=5, radius=1.0, leaf_size=10, metric="l2"):
 
         metric = metric.lower()
-        if metric not in SUPPORTED_METRIC:
-            raise ValueError(f"Supported metrics: {SUPPORTED_METRIC}")
+        if len(metric) < 2 or not metric[1:].isnumeric():
+            raise ValueError(f"Metric should start with 'l' followed with 1 or 2 numerical value")
 
         super().__init__(
             n_neighbors=n_neighbors, radius=radius, leaf_size=leaf_size, metric=metric
@@ -178,7 +178,8 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         assert(self.get_data(copy=False).shape[0] == Data_full.shape[0])
         assert(nb_dim % nb_mpts == 0)
 
-        mpts_radius = radius * nb_mpts / nb_dim
+        pnorm = float(self.metric[-1])
+        mpts_radius = radius * (nb_mpts / nb_dim)**(1.0/pnorm)
 
         if n_jobs == 1:
             self.index.radius_neighbors_idx_dists_full(X_mpts, Data_full, X_full, mpts_radius, radius)
@@ -188,7 +189,7 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
     def fit_and_radius_search(self, tree_vts, search_vts, radius, n_jobs=1, nb_mpts=None):
         assert(np.alltrue(tree_vts.shape[1:] == search_vts.shape[1:]))
 
-        if nb_mpts:
+        if nb_mpts and nb_mpts < tree_vts.shape[1]:
             if not(self.metric in ["l1", "l2", "l11", "l21"]):
                 raise ValueError(f"Only  l1, l2, l11, or l21  can be used with nb_mpts")
 

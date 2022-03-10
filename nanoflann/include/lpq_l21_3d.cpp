@@ -17,6 +17,9 @@ struct L21_M_3D {
   //int dist_exponent = 1; for M > 1
   int pair_exponent = 1;
 
+  //general function, unused for specific Lpq
+  void setup_lpq(int p, int q, int n_dim){}
+
   template <typename U, typename V>
   inline DistanceType accum_dist(const U a, const V b, const size_t) const {
     return std::abs(a - b) * static_cast<T>(0.577350269);
@@ -180,8 +183,7 @@ struct L21_2_3D_Adaptor : L21_M_3D<T, DataSource, _DistanceType> {
 };
 
 
-
-//4x3D
+//3x3D
 template <class T, class DataSource, typename _DistanceType = T>
 struct L21_3_3D_Adaptor : L21_M_3D<T, DataSource, _DistanceType> {
   typedef T ElementType;
