@@ -73,7 +73,6 @@ def lpm(mts, p):
 
 
 # Matrix norm switch
-
 def lpq_switch(mts, p, q):
     assert (p >= 1)
 
