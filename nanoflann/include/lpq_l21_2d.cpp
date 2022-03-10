@@ -17,6 +17,9 @@ struct L21_M_2D {
   //int dist_exponent = 1; for M > 1
   int pair_exponent = 1;
 
+  //general function, unused for specific Lpq
+  void setup_lpq(int p, int q, int n_dim){}
+
   template <typename U, typename V>
   inline DistanceType accum_dist(const U a, const V b, const size_t) const {
     return std::abs(a - b) * static_cast<T>(0.707106781);

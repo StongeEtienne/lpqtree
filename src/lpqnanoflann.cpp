@@ -44,6 +44,9 @@ class AbstractKDTree {
   virtual num_t scale_radius(const num_t radius) const = 0;
   virtual num_t scale_radius_full(const num_t radius) const = 0;
   virtual void buildIndex() = 0;
+
+  virtual void setup_lpq(int p, int q=0, int n=0) = 0;
+
   virtual ~AbstractKDTree(){};
 };
 
@@ -119,6 +122,12 @@ struct KDTreeNumpyAdaptor : public AbstractKDTree<num_t> {
 
   inline int get_radius_full_exp() const {
     return index->distance.pair_exponent;
+  }
+
+  inline void setup_lpq(int p, int q=0, int n=0) {
+    // method to initialize the lpq distance metric
+    //  when p or q > 2, or ndim > 4d
+    index->distance.setup_lpq(p, q, n);
   }
 
   inline num_t scale_radius(const num_t radius) const {
@@ -224,73 +233,103 @@ void KDTree<num_t>::fit(f_np_arr_t points, std::string index_path, size_t ndim) 
   if (total_dim % ndim > 0 )
     throw std::runtime_error("Error: total_dim != nb_values * ndim");
 
+  if (metric[0] != 'l')
+    throw std::runtime_error("Error: metric should start with  'l'");
 
-  if (metric == "l1" || metric == "l11") {
-    switch (total_dim) {
-      case 1:
-        index = new KDTreeNumpyAdaptor<num_t, 1, nanoflann::metric_L1_1D>(points, leaf_size);
-        break;
-      case 2:
-        index = new KDTreeNumpyAdaptor<num_t, 2, nanoflann::metric_L1_2D>(points, leaf_size);
-        break;
-      case 3:
-        index = new KDTreeNumpyAdaptor<num_t, 3, nanoflann::metric_L1_3D>(points, leaf_size);
-        break;
-      case 4:
-        index = new KDTreeNumpyAdaptor<num_t, 4, nanoflann::metric_L1_4D>(points, leaf_size);
-        break;
-      case 5:
-        index = new KDTreeNumpyAdaptor<num_t, 5, nanoflann::metric_L1_5D>(points, leaf_size);
-        break;
-      case 6:
-        index = new KDTreeNumpyAdaptor<num_t, 6, nanoflann::metric_L1_6D>(points, leaf_size);
-        break;
-      case 7:
-        index = new KDTreeNumpyAdaptor<num_t, 7, nanoflann::metric_L1_7D>(points, leaf_size);
-        break;
-      case 8:
-        index = new KDTreeNumpyAdaptor<num_t, 8, nanoflann::metric_L1_8D>(points, leaf_size);
-        break;
-      default:
-        index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L1_ND>(points, leaf_size);
-        break;
+  // Change  "lpq" string to  integers p and q
+  int p;
+  int q;
+  switch (metric.length()) {
+    case 1:
+        throw std::runtime_error("Error: should have at least 2 characters");
+      break;
+    case 2:
+        p = metric[1] - '0';
+        q = p;
+      break;
+    case 3:
+        p = metric[1] - '0';
+        q = metric[2] - '0';
+      break;
+    default:
+        throw std::runtime_error("Error: should have maximum 3 characters");
+      break;
+  }
+
+  if (p==0 || q==0){
+    throw std::runtime_error("Error: L0 is not a metric");
+  }
+  else if (p==q){ // if only P is given or if P=Q
+    if (p==1) { // L1 | L11
+      switch (total_dim) {
+        case 1:
+          index = new KDTreeNumpyAdaptor<num_t, 1, nanoflann::metric_L1_1D>(points, leaf_size);
+          break;
+        case 2:
+          index = new KDTreeNumpyAdaptor<num_t, 2, nanoflann::metric_L1_2D>(points, leaf_size);
+          break;
+        case 3:
+          index = new KDTreeNumpyAdaptor<num_t, 3, nanoflann::metric_L1_3D>(points, leaf_size);
+          break;
+        case 4:
+          index = new KDTreeNumpyAdaptor<num_t, 4, nanoflann::metric_L1_4D>(points, leaf_size);
+          break;
+        case 5:
+          index = new KDTreeNumpyAdaptor<num_t, 5, nanoflann::metric_L1_5D>(points, leaf_size);
+          break;
+        case 6:
+          index = new KDTreeNumpyAdaptor<num_t, 6, nanoflann::metric_L1_6D>(points, leaf_size);
+          break;
+        case 7:
+          index = new KDTreeNumpyAdaptor<num_t, 7, nanoflann::metric_L1_7D>(points, leaf_size);
+          break;
+        case 8:
+          index = new KDTreeNumpyAdaptor<num_t, 8, nanoflann::metric_L1_8D>(points, leaf_size);
+          break;
+        default:
+          index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L1_ND>(points, leaf_size);
+          break;
+      }
+    }
+    else if (p==2) { // L2 | L22
+      switch (total_dim) {
+        case 1:
+          index = new KDTreeNumpyAdaptor<num_t, 1, nanoflann::metric_L2_1D>(points, leaf_size);
+          break;
+        case 2:
+          index = new KDTreeNumpyAdaptor<num_t, 2, nanoflann::metric_L2_2D>(points, leaf_size);
+          break;
+        case 3:
+          index = new KDTreeNumpyAdaptor<num_t, 3, nanoflann::metric_L2_3D>(points, leaf_size);
+          break;
+        case 4:
+          index = new KDTreeNumpyAdaptor<num_t, 4, nanoflann::metric_L2_4D>(points, leaf_size);
+          break;
+        case 5:
+          index = new KDTreeNumpyAdaptor<num_t, 5, nanoflann::metric_L2_5D>(points, leaf_size);
+          break;
+        case 6:
+          index = new KDTreeNumpyAdaptor<num_t, 6, nanoflann::metric_L2_6D>(points, leaf_size);
+          break;
+        case 7:
+          index = new KDTreeNumpyAdaptor<num_t, 7, nanoflann::metric_L2_7D>(points, leaf_size);
+          break;
+        case 8:
+          index = new KDTreeNumpyAdaptor<num_t, 8, nanoflann::metric_L2_8D>(points, leaf_size);
+          break;
+        default:
+          index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L2_ND>(points, leaf_size);
+          break;
+      }
+    }
+    else {
+      index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_Lp_ND>(points, leaf_size);
     }
   }
-  else if (metric == "l2" || metric == "l22") {
-    switch (total_dim) {
-      case 1:
-        index = new KDTreeNumpyAdaptor<num_t, 1, nanoflann::metric_L2_1D>(points, leaf_size);
-        break;
-      case 2:
-        index = new KDTreeNumpyAdaptor<num_t, 2, nanoflann::metric_L2_2D>(points, leaf_size);
-        break;
-      case 3:
-        index = new KDTreeNumpyAdaptor<num_t, 3, nanoflann::metric_L2_3D>(points, leaf_size);
-        break;
-      case 4:
-        index = new KDTreeNumpyAdaptor<num_t, 4, nanoflann::metric_L2_4D>(points, leaf_size);
-        break;
-      case 5:
-        index = new KDTreeNumpyAdaptor<num_t, 5, nanoflann::metric_L2_5D>(points, leaf_size);
-        break;
-      case 6:
-        index = new KDTreeNumpyAdaptor<num_t, 6, nanoflann::metric_L2_6D>(points, leaf_size);
-        break;
-      case 7:
-        index = new KDTreeNumpyAdaptor<num_t, 7, nanoflann::metric_L2_7D>(points, leaf_size);
-        break;
-      case 8:
-        index = new KDTreeNumpyAdaptor<num_t, 8, nanoflann::metric_L2_8D>(points, leaf_size);
-        break;
-      default:
-        index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L2_ND>(points, leaf_size);
-        break;
-    }
-  }
-  else if (metric == "l21") {
+  else if (p==2 && q==1) { // L21
     switch (ndim) {
       case 1:
-        throw std::runtime_error("Error: L21 with ndim==1, use L1 distance");
+        throw std::runtime_error("Error: L21 with ndim==1, use L2 distance");
         break;
       case 2:
         switch (mdim) {
@@ -362,14 +401,15 @@ void KDTree<num_t>::fit(f_np_arr_t points, std::string index_path, size_t ndim) 
         }
         break;
       default:
-        throw std::runtime_error("L21 is only supported with 2D, 3D or 4D points (from numpy.shape[3])");
+        // TODO optimize for L21 in Nd ?
+        index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_Lpq_MND>(points, leaf_size);
         break;
     }
   }
-  else if (metric == "l12") {
+  else if (p==1 && q==2) { // L12
     switch (ndim) {
       case 1:
-        throw std::runtime_error("Error: L21 with ndim==1, use L2 distance");
+        throw std::runtime_error("Error: L12 with ndim==1, use L1 distance");
         break;
       case 2:
         switch (mdim) {
@@ -441,19 +481,25 @@ void KDTree<num_t>::fit(f_np_arr_t points, std::string index_path, size_t ndim) 
         }
         break;
       default:
-        throw std::runtime_error("L12 is only supported with 2D, 3D or 4D points (from numpy.shape[3])");
+        // TODO optimize for L12 in Nd ?
+        index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_Lpq_MND>(points, leaf_size);
         break;
     }
   }
-  else {
-    throw std::runtime_error( metric + " is not yet supported");
+  else{
+    // General Lpq distance where p != q
+    index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_Lpq_MND>(points, leaf_size);
   }
+  // TODO enforce at initialization
+  index->setup_lpq(p, q, ndim);
+
 
   if (index_path.size()) {
     index->loadIndex(index_path);
   } else {
     index->buildIndex();
   }
+
 }
 
 template <typename num_t>
@@ -735,7 +781,7 @@ pybind11::array_t<num_t, pybind11::array::c_style | pybind11::array::forcecast> 
 
   // reformating in a single array
   if(this->dists_exponent < 1){
-      throw std::runtime_error("Error: dists_exponent < 0, need to be set for the chosen distance");
+      throw std::runtime_error("Error: dists_exponent < 1, need to be set for the chosen distance");
   }
   else if(this->dists_exponent == 1){
     for (size_t i = 0; i < n_points; ++i) {

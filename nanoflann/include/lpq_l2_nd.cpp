@@ -16,6 +16,9 @@ struct L2_ND {
   int dist_exponent = 2;
   int pair_exponent = 2;
 
+  //general function, unused for specific Lpq
+  void setup_lpq(int p, int q, int n_dim){}
+
   template <typename U, typename V>
   inline DistanceType accum_dist(const U a, const V b, const size_t) const {
     const DistanceType diff = a - b;

@@ -40,7 +40,9 @@ ext_modules = [
          'nanoflann/include/lpq_l12_4d.cpp',
          'nanoflann/include/lpq_l21_2d.cpp',
          'nanoflann/include/lpq_l21_3d.cpp',
-         'nanoflann/include/lpq_l21_4d.cpp'],
+         'nanoflann/include/lpq_l21_4d.cpp',
+         'nanoflann/include/lpq_lp_nd.cpp',
+         'nanoflann/include/lpq_lpq_mnd.cpp'],
         include_dirs=[
             # Path to pybind11 headers
             get_pybind_include(),

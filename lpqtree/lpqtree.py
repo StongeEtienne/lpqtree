@@ -11,7 +11,7 @@ from scipy.sparse import csr_matrix, coo_matrix
 
 SUPPORTED_TYPES = [np.float32, np.float64]
 SUPPORTED_DIM = [2, 3]
-SUPPORTED_METRIC = ["l1", "l2", "l11", "l22", "l21", "l12"]
+# SUPPORTED_METRIC = ["lpq"] where p and q are any digit
 
 
 def pickler(c):
@@ -39,8 +39,8 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
     def __init__(self, n_neighbors=5, radius=1.0, leaf_size=10, metric="l2"):
 
         metric = metric.lower()
-        if metric not in SUPPORTED_METRIC:
-            raise ValueError(f"Supported metrics: {SUPPORTED_METRIC}")
+        if len(metric) < 2 or not metric[1:].isnumeric():
+            raise ValueError(f"Metric should start with 'l' followed with 1 or 2 numerical value")
 
         super().__init__(
             n_neighbors=n_neighbors, radius=radius, leaf_size=leaf_size, metric=metric

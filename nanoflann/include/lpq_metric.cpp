@@ -14,6 +14,9 @@
 #include <lpq_l12_3d.cpp>
 #include <lpq_l12_4d.cpp>
 
+#include <lpq_lp_nd.cpp>
+#include <lpq_lpq_mnd.cpp>
+
 namespace nanoflann {
 /** @addtogroup metric_grp Metric (distance) classes
  * @{ */
@@ -394,6 +397,20 @@ struct metric_L12_4_4D : public Metric {
     typedef L12_4_4D_Adaptor<T, DataSource> distance_t;
   };
 };
+
+
+struct metric_Lp_ND : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef Lp_ND_Adaptor<T, DataSource, T> distance_t;
+  };
+};
+
+struct metric_Lpq_MND : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef Lpq_MND_Adaptor<T, DataSource> distance_t;
+  };
+};
+
 
 
 } // namespace nanoflann
