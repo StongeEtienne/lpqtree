@@ -8,9 +8,10 @@ EPS = 1.0e-4
 MAXDIST = 9.9e32
 
 # testing values
-NB_MTX = 100
+NB_MTX = 50
 NB_RADIUS = 10
-np.random.seed(4)
+NB_K_QUERY = 5
+np.random.seed(6)
 LEAF_SIZE = 1  # force to test kd-tree split distance
 
 
@@ -22,9 +23,25 @@ def kdtree_test(v1, v2, p, q):
     lpq_res = lpqdist.lpq_allpairs(v1, v2, p=p, q=q)
     min_v = lpq_res.min() + EPS
     max_v = lpq_res.max() + EPS
-    step = (max_v - min_v) / NB_RADIUS
+    r_step = (max_v - min_v) / NB_RADIUS
 
-    # Test for all pairs with Max float distance
+    # Test k-NN for all pairs
+    lpq_tree = lpqtree.KDTree(metric=tree_m, radius=MAXDIST, leaf_size=LEAF_SIZE)
+    lpq_tree.fit(v2)
+    lpq_tree.query(v1, NB_MTX, return_distance=False)
+    lpq_tree_res = lpq_tree.get_coo_matrix()
+    assert np.allclose(lpq_res, lpq_tree_res.A), "test dist mtx"
+
+    # Test at various k-NN
+    argsort_lpq_res = lpq_res.argsort(axis=-1)
+    for k in np.arange(1, NB_MTX, NB_MTX//NB_K_QUERY, dtype=int):
+        res, dists = lpq_tree.query(v1, k, return_distance=True)
+        for i in range(NB_MTX):
+            # Can fail when 2 distances are the same or very similar
+            #assert np.all(np.in1d(argsort_lpq_res[i][:k], res[i]))
+            assert np.allclose(lpq_res[i][argsort_lpq_res[i][:k]], np.sort(dists[i]))
+
+    # Test Radius search for all pairs with Max float distance
     lpq_tree = lpqtree.KDTree(metric=tree_m, radius=MAXDIST, leaf_size=LEAF_SIZE)
     lpq_tree.fit(v2)
     lpq_tree.radius_neighbors(v1, MAXDIST, return_distance=True, no_return=True)
@@ -32,7 +49,7 @@ def kdtree_test(v1, v2, p, q):
     assert np.allclose(lpq_res, lpq_tree_res.A), "test dist mtx"
 
     # Test at various radius
-    for r in np.arange(min_v, max_v, step):
+    for r in np.arange(min_v, max_v, r_step):
         val_mask = lpq_res <= r
         values = lpq_res[val_mask]
         lpq_tree = lpqtree.KDTree(metric=tree_m, radius=r + EPS, leaf_size=LEAF_SIZE)
