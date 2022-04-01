@@ -103,6 +103,32 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         """Save index to the binary file. NOTE: Data points are NOT stored."""
         return self.index.save_index(path)
 
+    def query(self, X, k=1, return_distance=True, n_jobs=1):
+        check_is_fitted(self, ["_fit_X"], all_or_any=any)
+        _check_arg(X)
+
+        if X.ndim == 3:
+            X = X.reshape((X.shape[0], -1))
+
+        if k is None:
+            k = self.n_neighbors
+        else:
+            self.n_neighbors = k
+
+        if k > len(self._fit_X):
+            raise ValueError(f"KD Tree query bigger for {k}-NN however the "
+                             f"KD Tree only contain {len(self._fit_X)} points")
+
+        if n_jobs == 1:
+            self.index.kneighbors(X, k)
+        else:
+            self.index.kneighbors_multithreaded(X, k, n_jobs)
+
+        if return_distance:
+            return self.index.getResultIndicesCol().reshape((-1,k)), self.index.getResultDists().reshape((-1,k))
+
+        return self.index.getResultIndicesCol().reshape((-1,k))
+
     def radius_neighbors(self, X, radius=None, return_distance=True, n_jobs=1, no_return=False):
         check_is_fitted(self, ["_fit_X"], all_or_any=any)
         _check_arg(X)
@@ -112,6 +138,8 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
 
         if radius is None:
             radius = self.radius
+        else:
+            self.radius = radius
 
         if n_jobs == 1:
             if return_distance:
@@ -133,31 +161,6 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
             return self.index.getResultIndicesRow(), self.index.getResultIndicesCol(), self.index.getResultDists()
 
         return self.index.getResultIndicesRow(), self.index.getResultIndicesCol()
-
-    # Results getter with sparse matrices
-    def get_dists(self):
-        return self.index.getResultDists()
-
-    def get_rows(self):
-        return self.index.getResultIndicesRow()
-
-    def get_cols(self):
-        return self.index.getResultIndicesCol()
-
-    def get_csr_matrix(self):
-        mtx_shape = None
-        if self._nb_vts_in_tree and self._nb_vts_in_search:
-            mtx_shape = (self._nb_vts_in_tree, self._nb_vts_in_search)
-        return csr_matrix((self.get_dists(), self.get_cols(), self.index.getResultIndicesPtr()), shape=mtx_shape)
-
-    def get_coo_matrix(self):
-        mtx_shape = None
-        if self._nb_vts_in_tree and self._nb_vts_in_search:
-            mtx_shape = (self._nb_vts_in_tree, self._nb_vts_in_search)
-        return coo_matrix((self.get_dists(), (self.get_rows(), self.get_cols())), shape=mtx_shape)
-
-    def get_csc_matrix(self):
-        return self.get_coo_matrix().to_csc()
 
     # Advanced operation, using mean-points and full-points array
     def radius_neighbors_full(self, X_mpts, Data_full, X_full, radius, n_jobs=1):
@@ -208,6 +211,30 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
             self.radius_neighbors(search_vts, radius=radius, n_jobs=n_jobs,
                                   return_distance=True, no_return=True)
 
+    # Results getter with sparse matrices
+    def get_dists(self):
+        return self.index.getResultDists()
+
+    def get_rows(self):
+        return self.index.getResultIndicesRow()
+
+    def get_cols(self):
+        return self.index.getResultIndicesCol()
+
+    def get_csr_matrix(self):
+        mtx_shape = None
+        if self._nb_vts_in_tree and self._nb_vts_in_search:
+            mtx_shape = (self._nb_vts_in_tree, self._nb_vts_in_search)
+        return csr_matrix((self.get_dists(), self.get_cols(), self.index.getResultIndicesPtr()), shape=mtx_shape)
+
+    def get_coo_matrix(self):
+        mtx_shape = None
+        if self._nb_vts_in_tree and self._nb_vts_in_search:
+            mtx_shape = (self._nb_vts_in_tree, self._nb_vts_in_search)
+        return coo_matrix((self.get_dists(), (self.get_rows(), self.get_cols())), shape=mtx_shape)
+
+    def get_csc_matrix(self):
+        return self.get_coo_matrix().to_csc()
 
 # Register pickling of non-trivial types
 copyreg.pickle(KDTree, pickler, unpickler)
