@@ -126,8 +126,8 @@ class BuildExt(build_ext):
 setup(
     name='lpqtree',
     version=__version__,
-    author='stongeetienne',
-    author_email='at.gmail.com',
+    author='Etienne St-Onge',
+    author_email='Firstname.Lastname@usherbrooke.ca',
     url='https://github.com/StongeEtienne/lpqtree',
     description='Lpq KD Tree, adapted from Nanoflann with Python wrapper',
     long_description='',
