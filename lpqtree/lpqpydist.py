@@ -135,6 +135,6 @@ def lpq_pairwise(mts1, mts2, p, q):
 def lpq_allpairs(mts1, mts2, p, q):
     assert mts1.ndim == 3
     assert mts2.ndim == 3
-    assert np.alltrue(mts1.shape == mts2.shape)
+    assert np.alltrue(mts1.shape[1:] == mts2.shape[1:])
     idx_i, idx_j = np.mgrid[0:mts1.shape[0], 0:mts2.shape[0]]
     return lpq_switch(mts1[idx_i] - mts2[idx_j], p=p, q=q)

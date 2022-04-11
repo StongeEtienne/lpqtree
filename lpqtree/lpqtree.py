@@ -175,7 +175,6 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         nb_dim = X_full.shape[1]
 
         assert(X_mpts.shape[1] <= X_full.shape[1])
-
         assert(X_full.shape[1] == Data_full.shape[1])
         assert(X_mpts.shape[0] == X_full.shape[0])
         assert(self.get_data(copy=False).shape[0] == Data_full.shape[0])
@@ -184,6 +183,7 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         pnorm = float(self.metric[-1])
         mpts_radius = radius * (nb_mpts / nb_dim)**(1.0/pnorm)
 
+        self._nb_vts_in_search = X_mpts.shape[0]
         if n_jobs == 1:
             self.index.radius_neighbors_idx_dists_full(X_mpts, Data_full, X_full, mpts_radius, radius)
         else:
@@ -223,14 +223,14 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
 
     def get_csr_matrix(self):
         mtx_shape = None
-        if self._nb_vts_in_tree and self._nb_vts_in_search:
-            mtx_shape = (self._nb_vts_in_tree, self._nb_vts_in_search)
+        if self._nb_vts_in_search and self._nb_vts_in_tree:
+            mtx_shape = (self._nb_vts_in_search, self._nb_vts_in_tree)
         return csr_matrix((self.get_dists(), self.get_cols(), self.index.getResultIndicesPtr()), shape=mtx_shape)
 
     def get_coo_matrix(self):
         mtx_shape = None
-        if self._nb_vts_in_tree and self._nb_vts_in_search:
-            mtx_shape = (self._nb_vts_in_tree, self._nb_vts_in_search)
+        if self._nb_vts_in_search and self._nb_vts_in_tree:
+            mtx_shape = (self._nb_vts_in_search, self._nb_vts_in_tree)
         return coo_matrix((self.get_dists(), (self.get_rows(), self.get_cols())), shape=mtx_shape)
 
     def get_csc_matrix(self):
