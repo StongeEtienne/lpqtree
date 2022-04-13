@@ -35,7 +35,7 @@
  *  optimized for 2D or 3D point clouds.
  *
  *  nanoflann does not require compiling or installing, just an
- *  #include <nanoflann.hpp> in your code.
+ *  #include <nanoflann.cpp> in your code.
  *
  *  See:
  *   - <a href="modules.html" >C++ API organized by modules</a>
@@ -44,8 +44,8 @@
  * documentation</a>
  */
 
-#ifndef NANOFLANN_HPP_
-#define NANOFLANN_HPP_
+#ifndef NANOFLANN_CPP_
+#define NANOFLANN_CPP_
 
 #include <algorithm>
 #include <array>
@@ -1854,4 +1854,4 @@ public:
 /** @} */ // end of grouping
 } // namespace nanoflann
 
-#endif /* NANOFLANN_HPP_ */
+#endif /* NANOFLANN_CPP_ */

@@ -10,7 +10,7 @@ setup_pybind11(cfg)
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
-#include <nanoflann.hpp>
+#include <nanoflann.cpp>
 #include <lpq_metric.cpp>
 #include <thread>
 

@@ -4,7 +4,7 @@ import sys
 import setuptools
 import subprocess
 
-__version__ = '0.0.4rev2'
+__version__ = '0.0.4.post3'
 
 
 class get_pybind_include(object):
@@ -31,7 +31,7 @@ ext_modules = [
     Extension(
         'nanoflann_ext',
         ['src/lpqnanoflann.cpp',
-         'nanoflann/include/nanoflann.hpp',
+         'nanoflann/include/nanoflann.cpp',
          'nanoflann/include/lpq.cpp',
          'nanoflann/include/lpq_metric.cpp',
          'nanoflann/include/lpq_l1_nd.cpp',
