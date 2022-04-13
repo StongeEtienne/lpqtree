@@ -1,21 +1,25 @@
 ## <span style="font-family: serif; font-size: 2em; font-style: italic;">L<sup><sup>p,q</sup></sup> Tree</span>
-Fast radius search and k-nearest neighbors search for a list of MxN matrices.  
-Generalized to *L<sup>p,q</sup>* Minkowski *mixed-norm* / *entry-wise matrix distance*.  
-Currently focussing on *L<sup>2,1</sup>* applications, with 3D points.
+**LpqTree** is a C++ library that generalize k-d trees to *L<sup>p,q</sup>* Minkowski *mixed-norm* / *entry-wise matrix distance*.
+It can be used for, radius search and k-nearest neighbors search for a list of M×N matrices.
 
 
+### Distance / Norm computation
 The *L<sup>p,q</sup>* norm is defined like this :  
-![Lpq](https://latex.codecogs.com/svg.image?\large&space;\Vert&space;A&space;\Vert_{p,q}&space;=&space;&space;\bigg(\sum_{j=1}^m&space;\bigg(&space;\sum_{i=1}^n&space;|A_{ij}|^p&space;\bigg)^{\frac{q}{p}}\bigg)^{\frac{1}{q}})  
-In the code, matrix row and column are swapped, for faster operation along the last axis:
+[![Lpq](https://latex.codecogs.com/svg.image?\large&space;\Vert&space;A&space;\Vert_{p,q}&space;=&space;&space;\bigg(\sum_{j=1}^M&space;\bigg(&space;\sum_{i=1}^N&space;|A_{ij}|^p&space;\bigg)^{\frac{q}{p}}\bigg)^{\frac{1}{q}})](https://en.wikipedia.org/wiki/Matrix_norm#%22Entry-wise%22_matrix_norms)  
+In the **LpqTree** code, matrix row and column are swapped, for faster operation along the last axis:
 ```python
 import numpy as np
 def Lpq_norm(A, p, q):
     return np.sum( np.sum( np.abs(A)**p, axis=-1 )**(q/p), axis=-1)**(1.0/q)
 ```
 
+Distance computation is optimized for on *L<sup>2,1</sup>* applications, with M×2, M×3 or M×4 structures.
+Meanwhile, it also works for any M×N matrices using *L<sup>p,q</sup>*, where 1 ≤ p ≤ 9 and 1 ≤ q ≤ 9.
+
+
 ### K-d Tree Implementation
-Modified version of [Nanoflann](https://github.com/jlblancoc/nanoflann) KD Tree with Lpq matrix metric.  
-With python binder based of [pynanoflann](https://github.com/u1234x1234/pynanoflann).
+Modified version of [Nanoflann](https://github.com/jlblancoc/nanoflann) k-d trees to support *L<sup>p,q</sup>* norm.  
+It includes python binder, pybind11 , based of [pynanoflann](https://github.com/u1234x1234/pynanoflann).
 
 
 ### Installation
