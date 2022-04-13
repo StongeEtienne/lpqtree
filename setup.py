@@ -31,6 +31,7 @@ ext_modules = [
     Extension(
         'nanoflann_ext',
         ['src/lpqnanoflann.cpp',
+         'nanoflann/include/nanoflann.hpp',
          'nanoflann/include/lpq.cpp',
          'nanoflann/include/lpq_metric.cpp',
          'nanoflann/include/lpq_l1_nd.cpp',
