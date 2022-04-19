@@ -29,9 +29,11 @@ def test_lpq_pairwise():
 
 def allpairs_test(v1, v2, p, q):
     dists = lpqdist.lpq_allpairs(v1, v2, p=p, q=q)
+    d_iter = lpqdist.lpq_allpairs_iter(v1, v2, p=p, q=q)
     for i in range(NBMTS):
         for j in range(NBMTS):
             assert np.allclose(dists[i, j], lpqdist.lpq(v1[i] - v2[j], p=p, q=q)), "test lpq_allpairs"
+            assert np.allclose(d_iter[i, j], lpqdist.lpq(v1[i] - v2[j], p=p, q=q)), "test lpq_allpairs_iter"
 
 
 def test_lpq_allpairs():

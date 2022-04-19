@@ -1,5 +1,5 @@
 ## <span style="font-family: serif; font-size: 2em; font-style: italic;">L<sup><sup>p,q</sup></sup> Tree</span>
-**LpqTree** is a C++ library that generalize k-d trees to *L<sup>p,q</sup>* Minkowski *mixed-norm* / *entry-wise matrix distance*.
+**LpqTree** is a C++ library that generalize k-d trees to *L<sup>p,q</sup>* Minkowski *mixed-norm* (*entry-wise matrix distance*).  
 It can be used for, radius search and k-nearest neighbors search for a list of M×N matrices.
 
 

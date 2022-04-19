@@ -4,7 +4,7 @@ import sys
 import setuptools
 import subprocess
 
-__version__ = '0.0.4.post3'
+__version__ = '0.0.5'
 
 
 class get_pybind_include(object):
@@ -133,6 +133,7 @@ setup(
     description='Lpq KD Tree, adapted from Nanoflann with Python wrapper',
     long_description='',
     ext_modules=ext_modules,
+    license='BSD 2-Clause',
     packages=['lpqtree'],
     install_requires=['pybind11>=2.4', 'scikit-learn>=1.0'],
     setup_requires=['pybind11>=2.4'],

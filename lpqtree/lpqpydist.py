@@ -202,6 +202,7 @@ def lpq_pairwise(mts1, mts2, p, q):
 def lpq_allpairs(mts1, mts2, p, q):
     """
     For every pair (mts1[i], mts2[j]) compute the Lpq distance
+    (Faster but requires more memory compared to the iterative)
 
     Parameters
     ----------
@@ -223,5 +224,38 @@ def lpq_allpairs(mts1, mts2, p, q):
     assert mts1.ndim == 3
     assert mts2.ndim == 3
     assert np.alltrue(mts1.shape[1:] == mts2.shape[1:])
-    idx_i, idx_j = np.mgrid[0:mts1.shape[0], 0:mts2.shape[0]]
-    return lpq_switch(mts1[idx_i] - mts2[idx_j], p=p, q=q)
+
+    diff = mts1[:, None, ...] - mts2
+    return lpq_switch(diff, p=p, q=q)
+
+
+def lpq_allpairs_iter(mts1, mts2, p, q):
+    """
+    For every pair (mts1[i], mts2[j]) compute the Lpq distance
+    (Iterative version, slower but does not need as much memory)
+
+    Parameters
+    ----------
+    mts1 : numpy array (a x m x n)
+        list of matrices
+    mts2 : numpy array (b x m x n)
+        list of matrices
+    p: int
+        first norm applied along the last axis
+    q : int
+        second norm applied along the second last axis
+        "m" can be given instead of q=1 to compute the mean instead of the L1 sum.
+
+    Returns
+    -------
+    res : numpy array (a x b)
+        Resulting Lpq distance for  every pair (mts1[i], mts2[j])
+    """
+    assert mts1.ndim == 3
+    assert mts2.ndim == 3
+    assert np.alltrue(mts1.shape[1:] == mts2.shape[1:])
+
+    result = np.zeros((len(mts1), len(mts2)), dtype=mts1.dtype)
+    for j in range(len(mts2)):
+        result[:, j] = lpq_switch(mts1 - mts2[j], p=p, q=q)
+    return result
