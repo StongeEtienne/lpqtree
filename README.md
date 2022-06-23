@@ -67,4 +67,23 @@ adjacency_m = mtree.get_csr_matrix()
 ```
 
 ### Reference
-In progress ...
+**LpqTree** paper is in progress
+
+Cite as:
+```
+@article{st2022fast,
+  title={Fast Streamline Search: An Exact Technique for Diffusion MRI Tractography},
+  author={St-Onge, Etienne and Garyfallidis, Eleftherios and Collins, D Louis},
+  journal={Neuroinformatics},
+  pages={1--12},
+  year={2022},
+  publisher={Springer}
+}
+
+@misc{blanco2014nanoflann,
+  title        = {nanoflann: a {C}++ header-only fork of {FLANN}, a library for Nearest Neighbor ({NN}) with KD-trees},
+  author       = {Blanco, Jose Luis and Rai, Pranjal Kumar},
+  howpublished = {\url{https://github.com/jlblancoc/nanoflann}},
+  year         = {2014}
+}
+```

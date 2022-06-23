@@ -38,7 +38,7 @@ def kdtree_test(v1, v2, p, q):
         res, dists = lpq_tree.query(v1, k, return_distance=True)
         for i in range(NB_MTX):
             # Can fail when 2 distances are the same or very similar
-            #assert np.all(np.in1d(argsort_lpq_res[i][:k], res[i]))
+            # assert np.all(np.in1d(argsort_lpq_res[i][:k], res[i]))
             assert np.allclose(lpq_res[i][argsort_lpq_res[i][:k]], np.sort(dists[i]))
 
     # Test Radius search for all pairs with Max float distance
