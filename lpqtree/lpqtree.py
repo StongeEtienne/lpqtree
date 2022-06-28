@@ -362,6 +362,39 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         """Return the stored search results indices as a sparse csc_matrix"""
         return self.get_coo_matrix().to_csc()
 
+    def nlmean(self, tree_vts, radius, sigma, n_jobs=1, nb_mpts=None):
+        nb_vts = len(tree_vts)
+
+        if nb_mpts and nb_mpts < tree_vts.shape[1]:
+            if not (self.metric in ["l1", "l2", "l11", "l21"]):
+                raise ValueError(f"Only  l1, l2, l11, or l21  can be used with nb_mpts")
+
+            if tree_vts.shape[1] % nb_mpts != 0:
+                print(tree_vts.shape[1])
+                print(nb_mpts)
+                raise ValueError(f"nb_mpts must be a divisor of tree_vts.shape[2]")
+
+            nb_averaged = tree_vts.shape[1] // nb_mpts
+            tree_mpts = np.mean(tree_vts.reshape((tree_vts.shape[0], nb_mpts, nb_averaged, -1)), axis=2)
+            nb_dim = tree_vts.shape[1]
+            pnorm = float(self.metric[-1])
+            mpts_radius = radius * (nb_mpts / nb_dim) ** (1.0 / pnorm)
+
+            self.fit(tree_mpts)
+            tree_vts = tree_vts.reshape((nb_vts, -1))
+            tree_mpts = tree_mpts.reshape((nb_vts, -1))
+            self.index.radius_nlmean_full_multithreaded(tree_mpts.reshape((nb_vts, -1)),
+                                                        tree_vts.reshape((nb_vts, -1)),
+                                                        mpts_radius, radius, sigma, n_jobs)
+            return self.index.getResultRawDists()
+
+        else:
+            print("test2")
+            self.fit(tree_vts)
+            tree_vts = tree_vts.reshape((nb_vts, -1))
+            self.index.radius_nlmean_multithreaded(tree_vts.reshape((nb_vts, -1)),
+                                                   radius, sigma, n_jobs)
+            return self.index.getResultRawDists()
 
 # Register pickling of non-trivial types
 copyreg.pickle(KDTree, pickler, unpickler)

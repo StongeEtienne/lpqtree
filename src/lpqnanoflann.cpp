@@ -185,9 +185,12 @@ class KDTree {
   void radius_neighbors_idx_dists_full_multithreaded(f_np_arr_t arr, f_np_arr_t full_tree,
     f_np_arr_t full_arr, num_t radius = 1.0f, num_t radius_full = 1.0f, size_t nThreads = 1);
   void radius_neighbors_idx_multithreaded(
-      f_np_arr_t array, num_t radius = 1.0f, size_t nThreads = 1);
+    f_np_arr_t array, num_t radius = 1.0f, size_t nThreads = 1);
   void radius_neighbors_idx_dists_multithreaded(
-      f_np_arr_t array, num_t radius = 1.0f, size_t nThreads = 1);
+    f_np_arr_t array, num_t radius = 1.0f, size_t nThreads = 1);
+  void radius_nlmean_multithreaded(f_np_arr_t array, num_t radius = 1.0f, num_t sigma = 1.0f, size_t nThreads = 1);
+  void radius_nlmean_full_multithreaded(f_np_arr_t array, f_np_arr_t full_arr, num_t radius = 1.0f,
+    num_t radius_full = 1.0f, num_t sigma = 1.0f, size_t nThreads = 1);
 
   int save_index(const std::string &path);
 
@@ -620,6 +623,8 @@ void KDTree<num_t>::radius_neighbors_idx_multithreaded(f_np_arr_t array, num_t r
   const size_t n_points = mat.shape(0);
   const size_t dim = mat.shape(1);
 
+  f_np_arr_t avg_img;
+
 
   const num_t search_radius = index->scale_radius(radius);
 
@@ -925,6 +930,139 @@ void KDTree<num_t>::radius_neighbors_idx_dists_full_multithreaded(f_np_arr_t arr
 }
 
 
+template <typename num_t>
+void KDTree<num_t>::radius_nlmean_multithreaded(f_np_arr_t array, num_t radius, num_t sigma, size_t nThreads) {
+  const auto mat = array.template unchecked<2>();
+  const num_t *query_data = mat.data(0, 0);
+  const size_t n_points = mat.shape(0);
+  const size_t dim = mat.shape(1);
+
+  const num_t search_radius = index->scale_radius(radius);
+
+  //f_np_arr_t results();
+  std::vector<num_t> results;
+  this->dists_exponent = 1.0;
+  this->m_nbmatches.resize(n_points);
+  //this->m_indices.resize(n_points);
+  this->m_dists.resize(n_points);
+  for (size_t i = 0; i < n_points; i++) {
+    m_nbmatches[i] = dim;
+    this->m_dists[i].resize(dim);
+  }
+  const num_t denum = - (std::sqrt(2.0) * dim)  * sigma * sigma;
+
+  auto searchBatch = [&](size_t startIdx, size_t endIdx) {
+    std::vector<std::pair<size_t, num_t>> ret_matches;
+    num_t w_sum;
+    num_t weight;
+    size_t c_match;
+    for (size_t i = startIdx; i < endIdx; i++) {
+      const size_t nb_match = index->radiusSearch(&query_data[i * dim], search_radius, ret_matches, nanoflann::SearchParams());
+
+      w_sum = num_t(); // = 0.0
+      for (size_t j = 0; j < nb_match; j++) {
+        c_match = ret_matches[j].first * dim;
+        weight = std::exp(std::sqrt(ret_matches[j].second) / denum);
+        w_sum += weight;
+
+        for (size_t d = 0; d < dim; d++) {
+          this->m_dists[i][d] += weight * query_data[c_match + d];
+        }
+      }
+      for (size_t d = 0; d < dim; d++) {
+        this->m_dists[i][d] /= w_sum;
+      }
+    }
+  };
+
+  std::vector<std::thread> threadPool;
+  size_t batchSize = std::ceil(static_cast<float>(n_points) / nThreads);
+  for (size_t i = 0; i < nThreads; i++) {
+    size_t startIdx = i * batchSize;
+    size_t endIdx = (i + 1) * batchSize;
+    endIdx = std::min(endIdx, n_points);
+    threadPool.push_back(std::thread(searchBatch, startIdx, endIdx));
+  }
+  for (auto &t : threadPool) {
+    t.join();
+  }
+
+  return;
+}
+
+
+template <typename num_t>
+void KDTree<num_t>::radius_nlmean_full_multithreaded(f_np_arr_t array, f_np_arr_t full_array, num_t radius,
+    num_t radius_full, num_t sigma, size_t nThreads) {
+  // reset search results
+  const auto mat = array.template unchecked<2>();
+  const auto fmat = full_array.template unchecked<2>();
+  const num_t *query_data = mat.data(0, 0);
+  const num_t *query_full = fmat.data(0, 0);
+  const size_t n_points = mat.shape(0);
+  const size_t dim = mat.shape(1);
+  const size_t full_dim = fmat.shape(1);
+
+  const num_t search_radius = index->scale_radius(radius);
+  const num_t search_radius_full = index->scale_radius_full(radius_full);
+
+  //f_np_arr_t results();
+  std::vector<num_t> results;
+  this->dists_exponent = 1.0;
+  this->m_nbmatches.resize(n_points);
+  //this->m_indices.resize(n_points);
+  this->m_dists.resize(n_points);
+  for (size_t i = 0; i < n_points; i++) {
+    m_nbmatches[i] = full_dim;
+    this->m_dists[i].resize(full_dim);
+  }
+  const num_t denum = - (std::sqrt(2.0) * full_dim)  * sigma * sigma;
+
+  auto searchBatch = [&](size_t startIdx, size_t endIdx) {
+    std::vector<std::pair<size_t, num_t>> ret_matches;
+    num_t full_dist;
+    num_t w_sum;
+    num_t weight;
+    size_t c_match;
+    for (size_t i = startIdx; i < endIdx; i++) {
+      const size_t nb_match = index->radiusSearch(&query_data[i * dim], search_radius, ret_matches, nanoflann::SearchParams());
+
+      w_sum = num_t();
+      for (size_t j = 0; j < nb_match; j++) {
+        c_match = ret_matches[j].first * full_dim;
+        full_dist = index->eval_pair(&query_full[i * full_dim], &query_full[c_match], full_dim);
+
+        if (full_dist < search_radius_full){
+          weight = std::exp(std::sqrt(full_dist) / denum);
+          w_sum += weight;
+
+          for (size_t d = 0; d < full_dim; d++) {
+            this->m_dists[i][d] += weight * query_full[c_match + d];
+          }
+        }
+      }
+      for (size_t d = 0; d < full_dim; d++) {
+        this->m_dists[i][d] /= w_sum;
+      }
+    }
+  };
+
+  std::vector<std::thread> threadPool;
+  size_t batchSize = std::ceil(static_cast<float>(n_points) / nThreads);
+  for (size_t i = 0; i < nThreads; i++) {
+    size_t startIdx = i * batchSize;
+    size_t endIdx = (i + 1) * batchSize;
+    endIdx = std::min(endIdx, n_points);
+    threadPool.push_back(std::thread(searchBatch, startIdx, endIdx));
+  }
+  for (auto &t : threadPool) {
+    t.join();
+  }
+
+  return;
+}
+
+
 PYBIND11_MODULE(nanoflann_ext, m) {
   pybind11::class_<KDTree<float>>(m, "KDTree32")
       .def(pybind11::init<size_t, size_t, std::string, float>())
@@ -937,6 +1075,8 @@ PYBIND11_MODULE(nanoflann_ext, m) {
       .def("radius_neighbors_idx_dists_multithreaded", &KDTree<float>::radius_neighbors_idx_dists_multithreaded)
       .def("radius_neighbors_idx_dists_full", &KDTree<float>::radius_neighbors_idx_dists_full)
       .def("radius_neighbors_idx_dists_full_multithreaded", &KDTree<float>::radius_neighbors_idx_dists_full_multithreaded)
+      .def("radius_nlmean_multithreaded", &KDTree<float>::radius_nlmean_multithreaded)
+      .def("radius_nlmean_full_multithreaded", &KDTree<float>::radius_nlmean_full_multithreaded)
       .def("getResultLenghts", &KDTree<float>::getResultLenghts)
       .def("getResultIndicesPtr", &KDTree<float>::getResultIndicesPtr)
       .def("getResultIndicesRow", &KDTree<float>::getResultIndicesRow)
@@ -956,6 +1096,8 @@ PYBIND11_MODULE(nanoflann_ext, m) {
       .def("radius_neighbors_idx_dists_multithreaded", &KDTree<double>::radius_neighbors_idx_dists_multithreaded)
       .def("radius_neighbors_idx_dists_full", &KDTree<double>::radius_neighbors_idx_dists_full)
       .def("radius_neighbors_idx_dists_full_multithreaded", &KDTree<double>::radius_neighbors_idx_dists_full_multithreaded)
+      .def("radius_nlmean_multithreaded", &KDTree<double>::radius_nlmean_multithreaded)
+      .def("radius_nlmean_full_multithreaded", &KDTree<double>::radius_nlmean_full_multithreaded)
       .def("getResultLenghts", &KDTree<double>::getResultLenghts)
       .def("getResultIndicesPtr", &KDTree<double>::getResultIndicesPtr)
       .def("getResultIndicesRow", &KDTree<double>::getResultIndicesRow)
@@ -963,5 +1105,4 @@ PYBIND11_MODULE(nanoflann_ext, m) {
       .def("getResultDists", &KDTree<double>::getResultDists)
       .def("getResultRawDists", &KDTree<double>::getResultRawDists)
       .def("save_index", &KDTree<double>::save_index);
-
 }
