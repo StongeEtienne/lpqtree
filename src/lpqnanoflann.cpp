@@ -511,7 +511,7 @@ void KDTree<num_t>::kneighbors(f_np_arr_t array, size_t n_neighbors) {
   size_t n_points = mat.shape(0);
   size_t dim = mat.shape(1);
 
-  this->m_nbmatches.clear();
+  // this->m_nbmatches.clear();
   this->m_nbmatches.resize(n_points, n_neighbors);
   this->m_indices.resize(n_points);
   this->m_dists.resize(n_points);
@@ -534,6 +534,7 @@ void KDTree<num_t>::kneighbors_multithreaded(f_np_arr_t array, size_t n_neighbor
   size_t n_points = mat.shape(0);
   size_t dim = mat.shape(1);
 
+  // this->m_nbmatches.clear();
   this->m_nbmatches.resize(n_points, n_neighbors);
   this->m_indices.resize(n_points);
   this->m_dists.resize(n_points);

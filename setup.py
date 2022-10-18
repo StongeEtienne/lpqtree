@@ -135,7 +135,7 @@ setup(
     ext_modules=ext_modules,
     license='BSD 2-Clause',
     packages=['lpqtree'],
-    install_requires=['pybind11>=2.4', 'scikit-learn>=1.0'],
+    install_requires=['pybind11>=2.4', 'scikit-learn>=0.23'],
     setup_requires=['pybind11>=2.4'],
     cmdclass={'build_ext': BuildExt},
     zip_safe=False,
