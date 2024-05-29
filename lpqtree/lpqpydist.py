@@ -193,7 +193,7 @@ def lpq_pairwise(mts1, mts2, p, q):
     """
     assert mts1.ndim == 3
     assert mts2.ndim == 3
-    assert np.alltrue(mts1.shape[1:] == mts2.shape[1:])
+    assert np.all(mts1.shape[1:] == mts2.shape[1:])
 
     return lpq_switch(mts1 - mts2, p=p, q=q)
 
@@ -223,7 +223,7 @@ def lpq_allpairs(mts1, mts2, p, q):
     """
     assert mts1.ndim == 3
     assert mts2.ndim == 3
-    assert np.alltrue(mts1.shape[1:] == mts2.shape[1:])
+    assert np.all(mts1.shape[1:] == mts2.shape[1:])
 
     diff = mts1[:, None, ...] - mts2
     return lpq_switch(diff, p=p, q=q)
@@ -253,7 +253,7 @@ def lpq_allpairs_iter(mts1, mts2, p, q):
     """
     assert mts1.ndim == 3
     assert mts2.ndim == 3
-    assert np.alltrue(mts1.shape[1:] == mts2.shape[1:])
+    assert np.all(mts1.shape[1:] == mts2.shape[1:])
 
     result = np.zeros((len(mts1), len(mts2)), dtype=mts1.dtype)
     for j in range(len(mts2)):

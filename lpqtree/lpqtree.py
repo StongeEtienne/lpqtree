@@ -311,7 +311,7 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         nb_mpts : integer
             Number of mean-points used for the advanced search
         """
-        assert(np.alltrue(tree_vts.shape[1:] == search_vts.shape[1:]))
+        assert(np.all(tree_vts.shape[1:] == search_vts.shape[1:]))
 
         if nb_mpts and nb_mpts < tree_vts.shape[1]:
             if not(self.metric in ["l1", "l2", "l11", "l21"]):
