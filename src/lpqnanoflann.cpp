@@ -9,12 +9,12 @@ setup_pybind11(cfg)
 
 #include <cstdlib>
 #include <ctime>
+#include <fstream>
 #include <iostream>
 #include <nanoflann.cpp>
 #include <lpq_metric.cpp>
 #include <thread>
 
-using namespace std;
 using namespace nanoflann;
 
 using i_np_arr_t = pybind11::array_t<size_t, pybind11::array::c_style | pybind11::array::forcecast>;
@@ -24,19 +24,19 @@ template <typename num_t>
 class AbstractKDTree {
  public:
   virtual void findNeighbors(nanoflann::KNNResultSet<num_t>, const num_t *query,
-                             nanoflann::SearchParams params) = 0;
+                             nanoflann::SearchParameters params) = 0;
   virtual size_t radiusSearch(
       const num_t *query, num_t radius,
-      std::vector<std::pair<size_t, num_t>> &ret_matches,
-      nanoflann::SearchParams params) = 0;
+      std::vector<ResultItem<size_t, num_t>> &ret_matches,
+      nanoflann::SearchParameters params) = 0;
   virtual size_t radiusSearchIdx(
       const num_t *query, num_t radius,
       std::vector<size_t> &ret_matches,
-      nanoflann::SearchParams params) = 0;
+      nanoflann::SearchParameters params) = 0;
   virtual void knnSearch(const num_t *query, size_t num_closest,
                          size_t *out_indices, num_t *out_distances_sq) = 0;
-  virtual int saveIndex(const std::string &path) const = 0;
-  virtual int loadIndex(const std::string &path) = 0;
+  virtual int saveIndex(const std::string path) const = 0;
+  virtual int loadIndex(const std::string path) = 0;
   virtual num_t eval_pair(const num_t *a, const num_t *b, size_t size) const = 0;
   virtual num_t eval_pair(const num_t *a, const num_t *b, size_t size, num_t max_dist) const = 0;
   virtual int get_radius_exp() const = 0;
@@ -51,7 +51,7 @@ class AbstractKDTree {
 };
 
 
-template <typename num_t, int DIM = -1, class Distance = nanoflann::metric_L2_Simple>
+template <typename num_t, LpqDimType DIM = -1, class Distance = nanoflann::metric_L2_Simple>
 struct KDTreeNumpyAdaptor : public AbstractKDTree<num_t> {
   using self_t = KDTreeNumpyAdaptor<num_t, DIM, Distance>;
   using metric_t = typename Distance::template traits<num_t, self_t>::distance_t;
@@ -75,7 +75,7 @@ struct KDTreeNumpyAdaptor : public AbstractKDTree<num_t> {
   void buildIndex() { index->buildIndex(); }
 
   void findNeighbors(nanoflann::KNNResultSet<num_t> result_set,
-                     const num_t *query, nanoflann::SearchParams params) {
+                     const num_t *query, nanoflann::SearchParameters params) {
     index->findNeighbors(result_set, query, params);
   }
   void knnSearch(const num_t *query, size_t num_closest, size_t *out_indices,
@@ -84,14 +84,14 @@ struct KDTreeNumpyAdaptor : public AbstractKDTree<num_t> {
   }
 
   size_t radiusSearch(const num_t *query, num_t radius,
-                      std::vector<std::pair<size_t, num_t>> &ret_matches,
-                      nanoflann::SearchParams params) {
+                      std::vector<ResultItem<size_t, num_t>> &ret_matches,
+                      nanoflann::SearchParameters params) {
     return index->radiusSearch(query, radius, ret_matches, params);
   }
 
   size_t radiusSearchIdx(const num_t *query, num_t radius,
                          std::vector<size_t> &ret_matches,
-                         nanoflann::SearchParams params) {
+                         nanoflann::SearchParameters params) {
     return index->radiusSearchIdx(query, radius, ret_matches, params);
   }
 
@@ -109,25 +109,25 @@ struct KDTreeNumpyAdaptor : public AbstractKDTree<num_t> {
   }
 
   inline num_t eval_pair(const num_t *a, const num_t *b, size_t size) const {
-    return index->distance.eval_pair(a, b, size);
+    return index->distance_.eval_pair(a, b, size);
   }
 
   inline num_t eval_pair(const num_t *a, const num_t *b, size_t size, num_t max_dist) const {
-    return index->distance.eval_pair(a, b, size, max_dist);
+    return index->distance_.eval_pair(a, b, size, max_dist);
   }
 
   inline int get_radius_exp() const {
-    return index->distance.dist_exponent;
+    return index->distance_.dist_exponent;
   }
 
   inline int get_radius_full_exp() const {
-    return index->distance.pair_exponent;
+    return index->distance_.pair_exponent;
   }
 
   inline void setup_lpq(int p, int q=0, int n=0) {
     // method to initialize the lpq distance metric
     //  when p or q > 2, or ndim > 4d
-    index->distance.setup_lpq(p, q, n);
+    index->distance_.setup_lpq(p, q, n);
   }
 
   inline num_t scale_radius(const num_t radius) const {
@@ -143,23 +143,18 @@ struct KDTreeNumpyAdaptor : public AbstractKDTree<num_t> {
     return false;
   }
 
-  int saveIndex(const std::string &path) const {
-    FILE *f = fopen(path.c_str(), "wb");
-    if (!f) {
-      throw std::runtime_error("Error writing index file!");
-    }
-    index->saveIndex(f);
-    int ret_val = fclose(f);
-    return ret_val;
+  int saveIndex(const std::string path) const {
+    std::ofstream file(path);
+    index->saveIndex(file);
+    file.close();
+    return 0;
   }
 
-  int loadIndex(const std::string &path) {
-    FILE *f = fopen(path.c_str(), "rb");
-    if (!f) {
-      throw std::runtime_error("Error reading index file!");
-    }
-    index->loadIndex(f);
-    return fclose(f);
+  int loadIndex(const std::string path) {
+    std::ifstream file(path);
+    index->loadIndex(file);
+    file.close();
+    return 0;
   }
 };
 
@@ -189,7 +184,7 @@ class KDTree {
   void radius_neighbors_idx_dists_multithreaded(
       f_np_arr_t array, num_t radius = 1.0f, size_t nThreads = 1);
 
-  int save_index(const std::string &path);
+  int save_index(const std::string path);
 
   AbstractKDTree<num_t> *index;
 
@@ -577,7 +572,7 @@ void KDTree<num_t>::radius_neighbors_idx(
 
   for (size_t i = 0; i < n_points; i++) {
     this->m_nbmatches[i] = index->radiusSearchIdx(
-        &query_data[i * dim], search_radius, this->m_indices[i], nanoflann::SearchParams());
+        &query_data[i * dim], search_radius, this->m_indices[i], nanoflann::SearchParameters());
   }
   return;
 }
@@ -591,7 +586,7 @@ void KDTree<num_t>::radius_neighbors_idx_dists(f_np_arr_t array, num_t radius) {
 
 
   const num_t search_radius = index->scale_radius(radius);
-  std::vector<std::pair<size_t, num_t>> ret_matches;
+  std::vector<ResultItem<size_t, num_t>> ret_matches;
   this->m_nbmatches.resize(n_points);
   this->m_indices.resize(n_points);
   this->m_dists.resize(n_points);
@@ -599,7 +594,7 @@ void KDTree<num_t>::radius_neighbors_idx_dists(f_np_arr_t array, num_t radius) {
 
   for (size_t i = 0; i < n_points; i++) {
     const size_t nb_match = index->radiusSearch(
-        &query_data[i * dim], search_radius, ret_matches, nanoflann::SearchParams());
+        &query_data[i * dim], search_radius, ret_matches, nanoflann::SearchParameters());
     this->m_nbmatches[i] = nb_match;
 
     this->m_indices[i].resize(nb_match);
@@ -631,7 +626,7 @@ void KDTree<num_t>::radius_neighbors_idx_multithreaded(f_np_arr_t array, num_t r
   auto searchBatch = [&](size_t startIdx, size_t endIdx) {
     for (size_t i = startIdx; i < endIdx; i++) {
       this->m_nbmatches[i] = index->radiusSearchIdx(
-          &query_data[i * dim], search_radius, this->m_indices[i], nanoflann::SearchParams());
+          &query_data[i * dim], search_radius, this->m_indices[i], nanoflann::SearchParameters());
     }
   };
 
@@ -660,7 +655,7 @@ void KDTree<num_t>::radius_neighbors_idx_dists_multithreaded(f_np_arr_t array, n
 
 
   const num_t search_radius = index->scale_radius(radius);
-  std::vector<std::pair<size_t, num_t>> ret_matches;
+  std::vector<ResultItem<size_t, num_t>> ret_matches;
 
   this->m_nbmatches.resize(n_points);
   this->m_indices.resize(n_points);
@@ -668,9 +663,9 @@ void KDTree<num_t>::radius_neighbors_idx_dists_multithreaded(f_np_arr_t array, n
   this->dists_exponent = index->get_radius_exp();
 
   auto searchBatch = [&](size_t startIdx, size_t endIdx) {
-    std::vector<std::pair<size_t, num_t>> ret_matches;
+    std::vector<ResultItem<size_t, num_t>> ret_matches;
     for (size_t i = startIdx; i < endIdx; i++) {
-      const size_t nb_match = index->radiusSearch(&query_data[i * dim], search_radius, ret_matches, nanoflann::SearchParams());
+      const size_t nb_match = index->radiusSearch(&query_data[i * dim], search_radius, ret_matches, nanoflann::SearchParameters());
 
       this->m_nbmatches[i] = nb_match;
       this->m_indices[i].resize(nb_match);
@@ -698,9 +693,8 @@ void KDTree<num_t>::radius_neighbors_idx_dists_multithreaded(f_np_arr_t array, n
 }
 
 
-
 template <typename num_t>
-int KDTree<num_t>::save_index(const std::string &path) {
+int KDTree<num_t>::save_index(const std::string path) {
   return index->saveIndex(path);
 }
 
@@ -843,7 +837,7 @@ void KDTree<num_t>::radius_neighbors_idx_dists_full(f_np_arr_t array, f_np_arr_t
   const num_t search_radius = index->scale_radius(radius);
   const num_t search_radius_full = index->scale_radius_full(radius_full);
 
-  std::vector<std::pair<size_t, num_t>> ret_matches;
+  std::vector<ResultItem<size_t, num_t>> ret_matches;
   this->m_nbmatches.resize(n_points);
   this->m_indices.resize(n_points);
   this->m_dists.resize(n_points);
@@ -851,7 +845,7 @@ void KDTree<num_t>::radius_neighbors_idx_dists_full(f_np_arr_t array, f_np_arr_t
 
   for (size_t i = 0; i < n_points; i++) {
     const size_t nb_match = index->radiusSearch(
-        &query_data[i * dim], search_radius, ret_matches, nanoflann::SearchParams());
+        &query_data[i * dim], search_radius, ret_matches, nanoflann::SearchParameters());
 
     for (size_t j = 0; j < nb_match; j++) {
       full_dist = index->eval_pair(&query_full[i * full_dim], &query_fullt[ret_matches[j].first * full_dim], full_dim);
@@ -890,10 +884,10 @@ void KDTree<num_t>::radius_neighbors_idx_dists_full_multithreaded(f_np_arr_t arr
   this->dists_exponent = index->get_radius_full_exp();
 
   auto searchBatch = [&](size_t startIdx, size_t endIdx) {
-    std::vector<std::pair<size_t, num_t>> ret_matches;
+    std::vector<ResultItem<size_t, num_t>> ret_matches;
     num_t full_dist;
     for (size_t i = startIdx; i < endIdx; i++) {
-      const size_t nb_match = index->radiusSearch(&query_data[i * dim], search_radius, ret_matches, nanoflann::SearchParams());
+      const size_t nb_match = index->radiusSearch(&query_data[i * dim], search_radius, ret_matches, nanoflann::SearchParameters());
 
       this->m_indices[i].resize(0);
       this->m_dists[i].clear();

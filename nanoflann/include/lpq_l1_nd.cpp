@@ -1,3 +1,4 @@
+
 #ifndef LPQ_L1_ND_CPP_
 #define LPQ_L1_ND_CPP_
 

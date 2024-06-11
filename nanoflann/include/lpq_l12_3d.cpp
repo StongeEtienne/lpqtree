@@ -1,5 +1,4 @@
 
-
 #ifndef LPQ_L12_3D_CPP_
 #define LPQ_L12_3D_CPP_
 

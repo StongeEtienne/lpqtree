@@ -1,20 +1,7 @@
 
-
-
 #ifndef LPQ_CPP_
 #define LPQ_CPP_
 
-
-#include <algorithm>
-#include <array>
-#include <cassert>
-#include <cmath>   // for abs()
-#include <cstdio>  // for fwrite()
-//#include <cstdlib> // for abs()
-#include <functional>
-#include <limits> // std::reference_wrapper
-#include <stdexcept>
-#include <vector>
 
  /** the PI constant (required to avoid MSVC missing symbols) */
 template <typename T> T pi_const() {

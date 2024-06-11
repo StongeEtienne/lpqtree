@@ -24,6 +24,12 @@ namespace nanoflann {
 struct Metric {};
 
 /** Metaprogramming helper traits class for the L1 (Manhattan) metric */
+struct metric_L1 : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L1_ND_Adaptor<T, DataSource> distance_t;
+  };
+};
+
 struct metric_L1_ND : public Metric {
   template <class T, class DataSource> struct traits {
     typedef L1_ND_Adaptor<T, DataSource> distance_t;
@@ -80,6 +86,12 @@ struct metric_L1_8D : public Metric {
 
 
 /** Metaprogramming helper traits class for the L2 (Euclidean) metric */
+struct metric_L2 : public Metric {
+  template <class T, class DataSource> struct traits {
+    typedef L2_ND_Adaptor<T, DataSource> distance_t;
+  };
+};
+
 struct metric_L2_ND : public Metric {
   template <class T, class DataSource> struct traits {
     typedef L2_ND_Adaptor<T, DataSource> distance_t;
