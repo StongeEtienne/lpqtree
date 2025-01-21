@@ -3,7 +3,7 @@
  *
  * Copyright 2008-2009  Marius Muja (mariusm@cs.ubc.ca). All rights reserved.
  * Copyright 2008-2009  David G. Lowe (lowe@cs.ubc.ca). All rights reserved.
- * Copyright 2011-2024  Jose Luis Blanco (joseluisblancoc@gmail.com).
+ * Copyright 2011-2025  Jose Luis Blanco (joseluisblancoc@gmail.com).
  *   All rights reserved.
  *
  * THE BSD LICENSE
@@ -60,12 +60,13 @@
 #include <unordered_set>
 #include <vector>
 
+// LpqTree add
 #include <lpq_metric.cpp>
 using LpqIndexType = size_t;
 using LpqDimType = int;
 
 /** Library version: 0xMmP (M=Major,m=minor,P=patch) */
-#define NANOFLANN_VERSION 0x155
+#define NANOFLANN_VERSION 0x163
 
 // Avoid conflicting declaration of min/max macros in Windows headers
 #if !defined(NOMINMAX) && \
@@ -161,6 +162,38 @@ inline typename std::enable_if<!has_assign<Container>::value, void>::type
     for (size_t i = 0; i < nElements; i++) c[i] = value;
 }
 
+/** operator "<" for std::sort() */
+struct IndexDist_Sorter
+{
+    /** PairType will be typically: ResultItem<IndexType,DistanceType> */
+    template <typename PairType>
+    bool operator()(const PairType& p1, const PairType& p2) const
+    {
+        return p1.second < p2.second;
+    }
+};
+
+/**
+ * Each result element in RadiusResultSet. Note that distances and indices
+ * are named `first` and `second` to keep backward-compatibility with the
+ * `std::pair<>` type used in the past. In contrast, this structure is ensured
+ * to be `std::is_standard_layout` so it can be used in wrappers to other
+ * languages.
+ * See: https://github.com/jlblancoc/nanoflann/issues/166
+ */
+template <typename IndexType = size_t, typename DistanceType = double>
+struct ResultItem
+{
+    ResultItem() = default;
+    ResultItem(const IndexType index, const DistanceType distance)
+        : first(index), second(distance)
+    {
+    }
+
+    IndexType    first;  //!< Index of the sample in the dataset
+    DistanceType second;  //!< Distance from sample to query point
+};
+
 /** @addtogroup result_sets_grp Result set classes
  *  @{ */
 
@@ -241,6 +274,11 @@ class KNNResultSet
     }
 
     DistanceType worstDist() const { return dists[capacity - 1]; }
+
+    void sort()
+    {
+        // already sorted
+    }
 };
 
 /** Result set for RKNN searches (N-closest neighbors with a maximum radius) */
@@ -325,38 +363,11 @@ class RKNNResultSet
     }
 
     DistanceType worstDist() const { return dists[capacity - 1]; }
-};
 
-/** operator "<" for std::sort() */
-struct IndexDist_Sorter
-{
-    /** PairType will be typically: ResultItem<IndexType,DistanceType> */
-    template <typename PairType>
-    bool operator()(const PairType& p1, const PairType& p2) const
+    void sort()
     {
-        return p1.second < p2.second;
+        // already sorted
     }
-};
-
-/**
- * Each result element in RadiusResultSet. Note that distances and indices
- * are named `first` and `second` to keep backward-compatibility with the
- * `std::pair<>` type used in the past. In contrast, this structure is ensured
- * to be `std::is_standard_layout` so it can be used in wrappers to other
- * languages.
- * See: https://github.com/jlblancoc/nanoflann/issues/166
- */
-template <typename IndexType = size_t, typename DistanceType = double>
-struct ResultItem
-{
-    ResultItem() = default;
-    ResultItem(const IndexType index, const DistanceType distance)
-        : first(index), second(distance)
-    {
-    }
-
-    IndexType    first;  //!< Index of the sample in the dataset
-    DistanceType second;  //!< Distance from sample to query point
 };
 
 /**
@@ -417,9 +428,15 @@ class RadiusResultSet
             m_indices_dists.begin(), m_indices_dists.end(), IndexDist_Sorter());
         return *it;
     }
+
+    void sort()
+    {
+        std::sort(
+            m_indices_dists.begin(), m_indices_dists.end(), IndexDist_Sorter());
+    }
 };
 
-
+// LpqTree add (to return indices)
 template <typename _DistanceType, typename _IndexType = size_t>
 class RadiusResultSetIdx {
    public:
@@ -450,6 +467,13 @@ class RadiusResultSetIdx {
     }
 
     inline DistanceType worstDist() const { return radius; }
+
+    void sort()
+    {
+        throw std::runtime_error(
+          "Cannot sort radiusSearchIdx since it only keep indices \n"
+          " use radiusSearch instead");
+    }
 };
 
 /** @} */
@@ -1155,6 +1179,8 @@ class KDTreeBaseClass
     NodePtr divideTree(
         Derived& obj, const Offset left, const Offset right, BoundingBox& bbox)
     {
+        assert(left < obj.dataset_.kdtree_get_point_count());
+
         NodePtr node = obj.pool_.template allocate<Node>();  // allocate memory
         const auto dims = (DIM > 0 ? DIM : obj.dim_);
 
@@ -1276,10 +1302,7 @@ class KDTreeBaseClass
                     std::ref(right_bbox), std::ref(thread_count),
                     std::ref(mutex));
             }
-            else
-            {
-                --thread_count;
-            }
+            else { --thread_count; }
 
             BoundingBox left_bbox(bbox);
             left_bbox[cutfeat].high = cutval;
@@ -1329,7 +1352,7 @@ class KDTreeBaseClass
         for (Dimension i = 0; i < dims; ++i)
         {
             ElementType span = bbox[i].high - bbox[i].low;
-            if (span > (1 - EPS) * max_span)
+            if (span >= (1 - EPS) * max_span)
             {
                 ElementType min_elem_, max_elem_;
                 computeMinMax(obj, ind, count, i, min_elem_, max_elem_);
@@ -1714,6 +1737,9 @@ class KDTreeSingleIndexAdaptor
         assign(dists, (DIM > 0 ? DIM : Base::dim_), zero);
         DistanceType dist = this->computeInitialDistances(*this, vec, dists);
         searchLevel(result, vec, Base::root_node_, dist, dists, epsError);
+
+        if (searchParams.sorted) result.sort();
+
         return result.full();
     }
 
@@ -1770,19 +1796,21 @@ class KDTreeSingleIndexAdaptor
             radius, IndicesDists);
         const Size nFound =
             radiusSearchCustomCallback(query_point, resultSet, searchParams);
-        if (searchParams.sorted)
-            std::sort(
-                IndicesDists.begin(), IndicesDists.end(), IndexDist_Sorter());
         return nFound;
     }
 
     Size radiusSearchIdx(
-        const ElementType *query_point, const DistanceType &radius,
+        const ElementType *query_point, const DistanceType& radius,
         std::vector<IndexType> &IndicesDists,
         const SearchParameters &searchParams) const {
             RadiusResultSetIdx<DistanceType, IndexType> resultSet(radius, IndicesDists);
-            const size_t nFound =
-                radiusSearchCustomCallback(query_point, resultSet, searchParams);
+            const size_t nFound = radiusSearchCustomCallback(query_point, resultSet, searchParams);
+
+            if(searchParams.sorted)
+              throw std::runtime_error(
+                "Cannot sort radiusSearchIdx since it only keep indices \n"
+                " use radiusSearch instead");
+
             return nFound;
     }
 
@@ -1838,7 +1866,8 @@ class KDTreeSingleIndexAdaptor
         // Create a permutable array of indices to the input vectors.
         Base::size_ = dataset_.kdtree_get_point_count();
         if (Base::vAcc_.size() != Base::size_) Base::vAcc_.resize(Base::size_);
-        for (Size i = 0; i < Base::size_; i++) Base::vAcc_[i] = i;
+        for (IndexType i = 0; i < static_cast<IndexType>(Base::size_); i++)
+            Base::vAcc_[i] = i;
     }
 
     void computeBoundingBox(BoundingBox& bbox)
@@ -1895,7 +1924,7 @@ class KDTreeSingleIndexAdaptor
             {
                 const IndexType accessor = Base::vAcc_[i];  // reorder... : i;
                 DistanceType    dist     = distance_.evalMetric(
-                    vec, accessor, (DIM > 0 ? DIM : Base::dim_));
+                           vec, accessor, (DIM > 0 ? DIM : Base::dim_));
                 if (dist < worst_dist)
                 {
                     if (!result_set.addPoint(dist, Base::vAcc_[i]))
@@ -2249,9 +2278,6 @@ class KDTreeSingleIndexDynamicAdaptor_
             radius, IndicesDists);
         const size_t nFound =
             radiusSearchCustomCallback(query_point, resultSet, searchParams);
-        if (searchParams.sorted)
-            std::sort(
-                IndicesDists.begin(), IndicesDists.end(), IndexDist_Sorter());
         return nFound;
     }
 
@@ -2654,7 +2680,7 @@ struct KDTreeEigenMatrixAdaptor
     explicit KDTreeEigenMatrixAdaptor(
         const Dimension                                 dimensionality,
         const std::reference_wrapper<const MatrixType>& mat,
-        const int                                       leaf_max_size = 10)
+        const int leaf_max_size = 10, const unsigned int n_thread_build = 1)
         : m_data_matrix(mat)
     {
         const auto dims = row_major ? mat.get().cols() : mat.get().rows();
@@ -2668,7 +2694,9 @@ struct KDTreeEigenMatrixAdaptor
                 "argument");
         index_ = new index_t(
             dims, *this /* adaptor */,
-            nanoflann::KDTreeSingleIndexAdaptorParams(leaf_max_size));
+            nanoflann::KDTreeSingleIndexAdaptorParams(
+                leaf_max_size, nanoflann::KDTreeSingleIndexAdaptorFlags::None,
+                n_thread_build));
     }
 
    public:

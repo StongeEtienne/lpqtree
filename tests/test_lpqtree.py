@@ -30,7 +30,7 @@ def kdtree_test(v1, v2, p, q):
     lpq_tree.fit(v2)
     lpq_tree.query(v1, NB_MTX, return_distance=False)
     lpq_tree_res = lpq_tree.get_coo_matrix()
-    assert np.allclose(lpq_res, lpq_tree_res.A), "test dist mtx"
+    assert np.allclose(lpq_res, lpq_tree_res.toarray()), "test dist mtx"
 
     # Test at various k-NN
     argsort_lpq_res = lpq_res.argsort(axis=-1)
@@ -46,7 +46,11 @@ def kdtree_test(v1, v2, p, q):
     lpq_tree.fit(v2)
     lpq_tree.radius_neighbors(v1, MAXDIST, return_distance=True, no_return=True)
     lpq_tree_res = lpq_tree.get_coo_matrix()
-    assert np.allclose(lpq_res, lpq_tree_res.A), "test dist mtx"
+    assert np.allclose(lpq_res, lpq_tree_res.toarray()), "test radius_neighbors mtx"
+    # Test run, with no distances and return
+    ids_x, ids_tree = lpq_tree.radius_neighbors(v1, MAXDIST, return_distance=False, no_return=False)
+    assert np.all(ids_x == lpq_tree_res.row), "test radius_neighbors no_dist, row"
+    assert np.all(ids_tree == lpq_tree_res.col), "test radius_neighbors no_dist, col"
 
     # Test at various radius
     for r in np.arange(min_v, max_v, r_step):
@@ -56,9 +60,9 @@ def kdtree_test(v1, v2, p, q):
         lpq_tree.fit(v2)
         lpq_tree.radius_neighbors(v1, r + EPS, return_distance=True, no_return=True)
         lpq_tree_mtx = lpq_tree.get_coo_matrix()
-        assert np.allclose(values, lpq_tree_mtx.A[val_mask]), "test dist search coo mtx"
+        assert np.allclose(values, lpq_tree_mtx.toarray()[val_mask]), "test dist search coo mtx"
         lpq_tree_mtx = lpq_tree.get_csr_matrix()
-        assert np.allclose(values, lpq_tree_mtx.A[val_mask]), "test dist search csr mtx"
+        assert np.allclose(values, lpq_tree_mtx.toarray()[val_mask]), "test dist search csr mtx"
 
         # Test with mean_points
         if tree_m in ["l1", "l2", "l11", "l21"]:
@@ -66,11 +70,11 @@ def kdtree_test(v1, v2, p, q):
                 if v1.shape[1] % mpts == 0:
                     lpq_tree.fit_and_radius_search(v2, v1, r + EPS, nb_mpts=mpts)
                     lpq_tree_mtx = lpq_tree.get_coo_matrix()
-                    assert np.allclose(values, lpq_tree_mtx.A[val_mask]), "test nb_mpts mtx"
+                    assert np.allclose(values, lpq_tree_mtx.toarray()[val_mask]), "test nb_mpts mtx"
         else:
             lpq_tree.fit_and_radius_search(v2, v1, r + EPS, nb_mpts=None)
             lpq_tree_mtx = lpq_tree.get_coo_matrix()
-            assert np.allclose(values, lpq_tree_mtx.A[val_mask]), "test nb_mpts mtx"
+            assert np.allclose(values, lpq_tree_mtx.toarray()[val_mask]), "test nb_mpts mtx"
 
 
 def test_kdtree_l1_nd_f32():
