@@ -1,5 +1,4 @@
 
-
 #ifndef LPQ_METRIC_CPP_
 #define LPQ_METRIC_CPP_
 

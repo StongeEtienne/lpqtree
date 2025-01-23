@@ -181,6 +181,61 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
 
         return knn_res
 
+    def radius_knn(self, X, k, radius, return_distance=True, n_jobs=1, no_return=False):
+        """
+        Compute radius search for each streamlines in X searching into the KDTree,
+        and return a list of indices containing the neighborhood information.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            List of points (for Lp) or List of matrices (for Lpq).
+        k : int
+            Number of nearest neighbors wanted per slines
+        radius : float
+            Maximum Searching Radius
+        return_distance : bool
+            Compute and return the distance
+        n_jobs : integer
+            Number of processor cores (multithreading)
+        no_return : bool
+            Avoid directly returning the result, to avoid memory overhead,
+            KDTree get_rows(), get_cols() and get_dists() can be use afterward
+
+
+        Returns
+        -------
+        ids_x : numpy array
+            Indices of the given X
+        ids_tree : numpy array
+            Indices of the KDTree data
+        dists : numpy array (len(X) x k)
+            Distances for each match
+        """
+        check_is_fitted(self, ["_fit_X"], all_or_any=any)
+        _check_arg(X)
+
+        if X.ndim == 3:
+            X = X.reshape((X.shape[0], -1))
+
+        if n_jobs == 1:
+            self.index.rkneighbors(X, k, radius)
+        else:
+            self.index.rkneighbors_multithreaded(X, k, radius, n_jobs)
+
+        self._nb_vts_in_search = X.shape[0]
+
+        if no_return:
+            return
+
+        ids_x = self.index.getResultIndicesRow()
+        ids_tree = self.index.getResultIndicesCol()
+        if return_distance:
+            dists = self.index.getResultDists()
+            return ids_x, ids_tree, dists
+
+        return ids_x, ids_tree
+
     def radius_neighbors(self, X, radius=None, return_distance=True, n_jobs=1, no_return=False):
         """
         Compute radius search for each streamlines in X searching into the KDTree,

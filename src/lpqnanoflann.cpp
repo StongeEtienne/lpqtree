@@ -35,6 +35,8 @@ class AbstractKDTree {
       nanoflann::SearchParameters params) = 0;
   virtual void knnSearch(const num_t *query, size_t num_closest,
                          size_t *out_indices, num_t *out_distances_sq) = 0;
+  virtual size_t rknnSearch(const num_t *query, size_t num_closest,
+                            size_t *out_indices, num_t *out_distances_sq, num_t radius) = 0;
   virtual int saveIndex(const std::string path) const = 0;
   virtual int loadIndex(const std::string path) = 0;
   virtual num_t eval_pair(const num_t *a, const num_t *b, size_t size) const = 0;
@@ -81,6 +83,11 @@ struct KDTreeNumpyAdaptor : public AbstractKDTree<num_t> {
   void knnSearch(const num_t *query, size_t num_closest, size_t *out_indices,
                  num_t *out_distances_sq) {
     index->knnSearch(query, num_closest, out_indices, out_distances_sq);
+  }
+
+  size_t rknnSearch(const num_t *query, size_t num_closest, size_t *out_indices,
+                    num_t *out_distances_sq, num_t radius) {
+    return index->rknnSearch(query, num_closest, out_indices, out_distances_sq, radius);
   }
 
   size_t radiusSearch(const num_t *query, num_t radius,
@@ -171,6 +178,9 @@ class KDTree {
   void kneighbors(f_np_arr_t array, size_t n_neighbors);
   void kneighbors_multithreaded(f_np_arr_t array, size_t n_neighbors, size_t nThreads = 1);
 
+  // radius kneighbors search
+  void rkneighbors(f_np_arr_t array, size_t n_neighbors, num_t radius = 1.0f);
+  void rkneighbors_multithreaded(f_np_arr_t array, size_t n_neighbors, num_t radius = 1.0f, size_t nThreads = 1);
 
   // radius search
   void radius_neighbors_idx(f_np_arr_t, num_t radius = 1.0f);
@@ -512,9 +522,10 @@ void KDTree<num_t>::kneighbors(f_np_arr_t array, size_t n_neighbors) {
 
   for (size_t i = 0; i < n_points; i++) {
       const num_t *query_point = &query_data[i * dim];
-      m_indices[i].resize(n_neighbors);
-      m_dists[i].resize(n_neighbors);
+      m_indices[i].resize(n_neighbors); // TODO should it be reserved ?
+      m_dists[i].resize(n_neighbors); // TODO should it be reserved ?
       index->knnSearch(query_point, n_neighbors, this->m_indices[i].data(), this->m_dists[i].data());
+      // TODO test // m_dists[i].size() == this->m_nbmatches[i]
   }
 
   return;
@@ -527,6 +538,7 @@ void KDTree<num_t>::kneighbors_multithreaded(f_np_arr_t array, size_t n_neighbor
   size_t n_points = mat.shape(0);
   size_t dim = mat.shape(1);
 
+  this->m_nbmatches.clear();
   this->m_nbmatches.resize(n_points, n_neighbors);
   this->m_indices.resize(n_points);
   this->m_dists.resize(n_points);
@@ -535,9 +547,77 @@ void KDTree<num_t>::kneighbors_multithreaded(f_np_arr_t array, size_t n_neighbor
   auto searchBatch = [&](size_t startIdx, size_t endIdx) {
     for (size_t i = startIdx; i < endIdx; i++) {
       const num_t *query_point = &query_data[i * dim];
-      m_indices[i].resize(n_neighbors);
-      m_dists[i].resize(n_neighbors);
+      m_indices[i].resize(n_neighbors); // TODO should it be reserved ?
+      m_dists[i].resize(n_neighbors); // TODO should it be reserved ?
       index->knnSearch(query_point, n_neighbors, this->m_indices[i].data(), this->m_dists[i].data());
+      // TODO test // m_dists[i].size() == this->m_nbmatches[i]
+    }
+  };
+
+  std::vector<std::thread> threadPool;
+  size_t batchSize = std::ceil(static_cast<float>(n_points) / nThreads);
+  for (size_t i = 0; i < nThreads; i++) {
+    size_t startIdx = i * batchSize;
+    size_t endIdx = (i + 1) * batchSize;
+    endIdx = std::min(endIdx, n_points);
+    threadPool.push_back(std::thread(searchBatch, startIdx, endIdx));
+  }
+  for (auto &t : threadPool) {
+    t.join();
+  }
+
+  return;
+}
+
+template <typename num_t>
+void KDTree<num_t>::rkneighbors(f_np_arr_t array, size_t n_neighbors, num_t radius) {
+  auto mat = array.template unchecked<2>();
+  const num_t *query_data = mat.data(0, 0);
+  size_t n_points = mat.shape(0);
+  size_t dim = mat.shape(1);
+
+  this->m_nbmatches.clear();
+  this->m_nbmatches.resize(n_points, n_neighbors); // this might varies
+  this->m_indices.resize(n_points);
+  this->m_dists.resize(n_points);
+  this->dists_exponent = index->get_radius_exp();
+
+  const num_t search_radius = index->scale_radius(radius); // TODO test
+
+  for (size_t i = 0; i < n_points; i++) {
+      const num_t *query_point = &query_data[i * dim];
+      m_indices[i].reserve(n_neighbors);
+      m_dists[i].reserve(n_neighbors); // TODO test
+      this->m_nbmatches[i] = index->rknnSearch(query_point, n_neighbors, this->m_indices[i].data(), this->m_dists[i].data(), search_radius);
+      // TODO test // m_dists[i].size() == this->m_nbmatches[i]
+  }
+
+  return;
+}
+
+
+template <typename num_t>
+void KDTree<num_t>::rkneighbors_multithreaded(f_np_arr_t array, size_t n_neighbors, num_t radius, size_t nThreads) {
+  auto mat = array.template unchecked<2>();
+  const num_t *query_data = mat.data(0, 0);
+  size_t n_points = mat.shape(0);
+  size_t dim = mat.shape(1);
+
+  this->m_nbmatches.clear();
+  this->m_nbmatches.resize(n_points, n_neighbors); // this might varies
+  this->m_indices.resize(n_points);
+  this->m_dists.resize(n_points);
+  this->dists_exponent = index->get_radius_exp();
+
+  const num_t search_radius = index->scale_radius(radius); // TODO test
+
+  auto searchBatch = [&](size_t startIdx, size_t endIdx) {
+    for (size_t i = startIdx; i < endIdx; i++) {
+      const num_t *query_point = &query_data[i * dim];
+      m_indices[i].reserve(n_neighbors);
+      m_dists[i].reserve(n_neighbors);
+      this->m_nbmatches[i] = index->rknnSearch(query_point, n_neighbors, this->m_indices[i].data(), this->m_dists[i].data(), search_radius);
+      // TODO test // m_dists[i].size() == this->m_nbmatches[i]
     }
   };
 
@@ -926,6 +1006,8 @@ PYBIND11_MODULE(nanoflann_ext, m) {
       .def("fit", &KDTree<float>::fit)
       .def("kneighbors", &KDTree<float>::kneighbors)
       .def("kneighbors_multithreaded", &KDTree<float>::kneighbors_multithreaded)
+      .def("rkneighbors", &KDTree<float>::rkneighbors)
+      .def("rkneighbors_multithreaded", &KDTree<float>::rkneighbors_multithreaded)
       .def("radius_neighbors_idx", &KDTree<float>::radius_neighbors_idx)
       .def("radius_neighbors_idx_dists", &KDTree<float>::radius_neighbors_idx_dists)
       .def("radius_neighbors_idx_multithreaded", &KDTree<float>::radius_neighbors_idx_multithreaded)
@@ -945,6 +1027,8 @@ PYBIND11_MODULE(nanoflann_ext, m) {
       .def("fit", &KDTree<double>::fit)
       .def("kneighbors", &KDTree<double>::kneighbors)
       .def("kneighbors_multithreaded", &KDTree<double>::kneighbors_multithreaded)
+      .def("rkneighbors", &KDTree<double>::rkneighbors)
+      .def("rkneighbors_multithreaded", &KDTree<double>::rkneighbors_multithreaded)
       .def("radius_neighbors_idx", &KDTree<double>::radius_neighbors_idx)
       .def("radius_neighbors_idx_dists", &KDTree<double>::radius_neighbors_idx_dists)
       .def("radius_neighbors_idx_multithreaded", &KDTree<double>::radius_neighbors_idx_multithreaded)
