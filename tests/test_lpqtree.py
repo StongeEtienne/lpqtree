@@ -14,6 +14,9 @@ NB_K_QUERY = 5
 np.random.seed(6)
 LEAF_SIZE = 1  # force to test kd-tree split distance
 
+# Testing the single-threaded, and a single multi-threaded
+NB_THREAD = 4
+
 
 def kdtree_test(v1, v2, p, q):
     assert 1 <= p < 10
@@ -31,11 +34,21 @@ def kdtree_test(v1, v2, p, q):
     lpq_tree.query(v1, NB_MTX, return_distance=False)
     lpq_tree_res = lpq_tree.get_coo_matrix()
     assert np.allclose(lpq_res, lpq_tree_res.toarray()), "test dist mtx"
+    # Multi-threaded version
+    lpq_tree.query(v1, NB_MTX, return_distance=False, n_jobs=NB_THREAD)
+    lpq_tree_res = lpq_tree.get_coo_matrix()
+    assert np.allclose(lpq_res, lpq_tree_res.toarray()), "test dist mtx"
 
     # Test at various k-NN
     argsort_lpq_res = lpq_res.argsort(axis=-1)
     for k in np.arange(1, NB_MTX, NB_MTX//NB_K_QUERY, dtype=int):
         res, dists = lpq_tree.query(v1, k, return_distance=True)
+        for i in range(NB_MTX):
+            # Can fail when 2 distances are the same or very similar
+            # assert np.all(np.in1d(argsort_lpq_res[i][:k], res[i]))
+            assert np.allclose(lpq_res[i][argsort_lpq_res[i][:k]], np.sort(dists[i]))
+        # Multi-threaded version
+        res, dists = lpq_tree.query(v1, k, return_distance=True, n_jobs=NB_THREAD)
         for i in range(NB_MTX):
             # Can fail when 2 distances are the same or very similar
             # assert np.all(np.in1d(argsort_lpq_res[i][:k], res[i]))
@@ -51,6 +64,14 @@ def kdtree_test(v1, v2, p, q):
     ids_x, ids_tree = lpq_tree.radius_neighbors(v1, MAXDIST, return_distance=False, no_return=False)
     assert np.all(ids_x == lpq_tree_res.row), "test radius_neighbors no_dist, row"
     assert np.all(ids_tree == lpq_tree_res.col), "test radius_neighbors no_dist, col"
+    # Multi-threaded version
+    lpq_tree.radius_neighbors(v1, MAXDIST, return_distance=True, no_return=True, n_jobs=NB_THREAD)
+    lpq_tree_res = lpq_tree.get_coo_matrix()
+    assert np.allclose(lpq_res, lpq_tree_res.toarray()), "test radius_neighbors mtx"
+    # Test run, with no distances and return
+    ids_x, ids_tree = lpq_tree.radius_neighbors(v1, MAXDIST, return_distance=False, no_return=False, n_jobs=NB_THREAD)
+    assert np.all(ids_x == lpq_tree_res.row), "test radius_neighbors no_dist, row"
+    assert np.all(ids_tree == lpq_tree_res.col), "test radius_neighbors no_dist, col"
 
     # Test at various radius
     for r in np.arange(min_v, max_v, r_step):
@@ -63,6 +84,12 @@ def kdtree_test(v1, v2, p, q):
         assert np.allclose(values, lpq_tree_mtx.toarray()[val_mask]), "test dist search coo mtx"
         lpq_tree_mtx = lpq_tree.get_csr_matrix()
         assert np.allclose(values, lpq_tree_mtx.toarray()[val_mask]), "test dist search csr mtx"
+        # Multi-threaded version
+        lpq_tree.radius_neighbors(v1, r + EPS, return_distance=True, no_return=True, n_jobs=NB_THREAD)
+        lpq_tree_mtx = lpq_tree.get_coo_matrix()
+        assert np.allclose(values, lpq_tree_mtx.toarray()[val_mask]), "test dist search coo mtx"
+        lpq_tree_mtx = lpq_tree.get_csr_matrix()
+        assert np.allclose(values, lpq_tree_mtx.toarray()[val_mask]), "test dist search csr mtx"
 
         # Test with mean_points
         if tree_m in ["l1", "l2", "l11", "l21"]:
@@ -71,8 +98,16 @@ def kdtree_test(v1, v2, p, q):
                     lpq_tree.fit_and_radius_search(v2, v1, r + EPS, nb_mpts=mpts)
                     lpq_tree_mtx = lpq_tree.get_coo_matrix()
                     assert np.allclose(values, lpq_tree_mtx.toarray()[val_mask]), "test nb_mpts mtx"
+                    # Multi-threaded version
+                    lpq_tree.fit_and_radius_search(v2, v1, r + EPS, nb_mpts=mpts, n_jobs=NB_THREAD)
+                    lpq_tree_mtx = lpq_tree.get_coo_matrix()
+                    assert np.allclose(values, lpq_tree_mtx.toarray()[val_mask]), "test nb_mpts mtx"
         else:
             lpq_tree.fit_and_radius_search(v2, v1, r + EPS, nb_mpts=None)
+            lpq_tree_mtx = lpq_tree.get_coo_matrix()
+            assert np.allclose(values, lpq_tree_mtx.toarray()[val_mask]), "test nb_mpts mtx"
+            # Multi-threaded version
+            lpq_tree.fit_and_radius_search(v2, v1, r + EPS, nb_mpts=None, n_jobs=NB_THREAD)
             lpq_tree_mtx = lpq_tree.get_coo_matrix()
             assert np.allclose(values, lpq_tree_mtx.toarray()[val_mask]), "test nb_mpts mtx"
 
