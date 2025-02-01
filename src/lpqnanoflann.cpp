@@ -816,7 +816,7 @@ void KDTree<num_t>::radius_neighbors_idx_dists_full(f_np_arr_t array, f_np_arr_t
   const num_t search_radius = index->scale_radius(radius);
   const num_t search_radius_full = index->scale_radius_full(radius_full);
 
-  std::vector<ResultItem<size_t, num_t>> ret_matches;
+  std::vector<size_t> ret_matches;
   this->m_nbmatches.clear();
   this->m_nbmatches.resize(n_points);
   this->m_indices.resize(n_points);
@@ -824,15 +824,14 @@ void KDTree<num_t>::radius_neighbors_idx_dists_full(f_np_arr_t array, f_np_arr_t
   this->dists_exponent = index->get_radius_full_exp();
 
   for (size_t i = 0; i < n_points; i++) {
-    // TODO check if needed or use "radiusSearchIdx" instead
-    const size_t nb_match = index->radiusSearch(
+    const size_t nb_match = index->radiusSearchIdx(
         &query_data[i * dim], search_radius, ret_matches, this->searchParams);
 
     for (size_t j = 0; j < nb_match; j++) {
-      full_dist = index->eval_pair(&query_full[i * full_dim], &query_fullt[ret_matches[j].first * full_dim], full_dim);
+      full_dist = index->eval_pair(&query_full[i * full_dim], &query_fullt[ret_matches[j] * full_dim], full_dim);
 
       if (full_dist < search_radius_full){
-        this->m_indices[i].push_back(ret_matches[j].first);
+        this->m_indices[i].push_back(ret_matches[j]);
         this->m_dists[i].push_back(full_dist);
       }
     }
@@ -866,19 +865,18 @@ void KDTree<num_t>::radius_neighbors_idx_dists_full_multithreaded(f_np_arr_t arr
   this->dists_exponent = index->get_radius_full_exp();
 
   auto searchBatch = [&](size_t startIdx, size_t endIdx) {
-    std::vector<ResultItem<size_t, num_t>> ret_matches;
+    std::vector<size_t> ret_matches;
     num_t full_dist;
     for (size_t i = startIdx; i < endIdx; i++) {
-      // TODO check if needed or use "radiusSearchIdx" instead
-      const size_t nb_match = index->radiusSearch(&query_data[i * dim], search_radius, ret_matches, this->searchParams);
+      const size_t nb_match = index->radiusSearchIdx(&query_data[i * dim], search_radius, ret_matches, this->searchParams);
 
       this->m_indices[i].resize(0);
       this->m_dists[i].clear();
       for (size_t j = 0; j < nb_match; j++) {
-        full_dist = index->eval_pair(&query_full[i * full_dim], &query_fullt[ret_matches[j].first * full_dim], full_dim);
+        full_dist = index->eval_pair(&query_full[i * full_dim], &query_fullt[ret_matches[j] * full_dim], full_dim);
 
         if (full_dist < search_radius_full){
-          this->m_indices[i].push_back(ret_matches[j].first);
+          this->m_indices[i].push_back(ret_matches[j]);
           this->m_dists[i].push_back(full_dist);
         }
       }
@@ -984,7 +982,7 @@ void KDTree<num_t>::radius_neighbors_count_full(f_np_arr_t array, f_np_arr_t ful
   const num_t search_radius = index->scale_radius(radius);
   const num_t search_radius_full = index->scale_radius_full(radius_full);
 
-  std::vector<ResultItem<size_t, num_t>> ret_matches;
+  std::vector<size_t> ret_matches;
   //this->m_nbmatches.resize(n_points);
   //this->m_indices.resize(n_points);
   //this->m_dists.resize(n_points);
@@ -998,13 +996,13 @@ void KDTree<num_t>::radius_neighbors_count_full(f_np_arr_t array, f_np_arr_t ful
 
 
   for (size_t i = 0; i < n_points; i++) {
-    const size_t nb_match = index->radiusSearch( // TODO check if needed or use "radiusSearchIdx" instead
+    const size_t nb_match = index->radiusSearchIdx(
         &query_data[i * dim], search_radius, ret_matches, this->searchParams);
 
     // init count to 0
     nb_match_full = 0;
     for (size_t j = 0; j < nb_match; j++) {
-      full_dist = index->eval_pair(&query_full[i * full_dim], &query_fullt[ret_matches[j].first * full_dim], full_dim);
+      full_dist = index->eval_pair(&query_full[i * full_dim], &query_fullt[ret_matches[j] * full_dim], full_dim);
 
       if (full_dist < search_radius_full){
         ++nb_match_full;
@@ -1040,16 +1038,15 @@ void KDTree<num_t>::radius_neighbors_count_full_multithreaded(f_np_arr_t array, 
   this->dists_exponent = index->get_radius_full_exp();
 
   auto searchBatch = [&](size_t startIdx, size_t endIdx) {
-    std::vector<ResultItem<size_t, num_t>> ret_matches;
+    std::vector<size_t> ret_matches;
     num_t full_dist;
     for (size_t i = startIdx; i < endIdx; i++) {
-      // TODO check if needed or use "radiusSearchIdx" instead
-      const size_t nb_match = index->radiusSearch(&query_data[i * dim], search_radius, ret_matches, this->searchParams);
+      const size_t nb_match = index->radiusSearchIdx(&query_data[i * dim], search_radius, ret_matches, this->searchParams);
 
       // init count to 0
       size_t nb_match_full = 0;
       for (size_t j = 0; j < nb_match; j++) {
-        full_dist = index->eval_pair(&query_full[i * full_dim], &query_fullt[ret_matches[j].first * full_dim], full_dim);
+        full_dist = index->eval_pair(&query_full[i * full_dim], &query_fullt[ret_matches[j] * full_dim], full_dim);
 
         if (full_dist < search_radius_full){
           ++nb_match_full;
