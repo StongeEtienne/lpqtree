@@ -450,8 +450,9 @@ class RadiusResultSetIdx {
     inline RadiusResultSetIdx(
       DistanceType radius_,
       std::vector<IndexType> &indices)
-      : radius(radius_), m_indices(indices) {
-    init();
+      : radius(radius_), m_indices(indices)
+    {
+      init();
     }
 
     inline void init() { clear(); }
@@ -461,9 +462,9 @@ class RadiusResultSetIdx {
 
     inline bool full() const { return true; }
     inline bool addPoint(DistanceType dist, IndexType index) {
-    if (dist < radius)
-      m_indices.push_back(index);
-    return true;
+        if (dist < radius)
+          m_indices.push_back(index);
+        return true;
     }
 
     inline DistanceType worstDist() const { return radius; }
@@ -475,6 +476,45 @@ class RadiusResultSetIdx {
           " use radiusSearch instead");
     }
 };
+
+// LpqTree add (to return only count)
+template <typename _DistanceType, typename _IndexType = size_t>
+class RadiusResultSetCount {
+   public:
+    using DistanceType = _DistanceType;
+    using IndexType    = _IndexType;
+
+    const DistanceType radius;
+
+    IndexType count;
+
+    inline RadiusResultSetCount(DistanceType radius_)
+      : radius(radius_), count(0) {
+    init();
+    }
+
+    inline void init() { count = 0; }
+    inline void clear() { count = 0; }
+
+    inline size_t size() const { return count; }
+
+    inline bool full() const { return true; }
+    inline bool addPoint(DistanceType dist, IndexType index) {
+        if (dist < radius)
+          ++count;
+        return true;
+    }
+
+    inline DistanceType worstDist() const { return radius; }
+
+    void sort()
+    {
+        throw std::runtime_error(
+          "Cannot sort radiusSearchIdx since it only keep indices \n"
+          " use radiusSearch instead");
+    }
+};
+
 
 /** @} */
 
@@ -1802,7 +1842,8 @@ class KDTreeSingleIndexAdaptor
     Size radiusSearchIdx(
         const ElementType *query_point, const DistanceType& radius,
         std::vector<IndexType> &IndicesDists,
-        const SearchParameters &searchParams) const {
+        const SearchParameters &searchParams) const
+    {
             RadiusResultSetIdx<DistanceType, IndexType> resultSet(radius, IndicesDists);
             const size_t nFound = radiusSearchCustomCallback(query_point, resultSet, searchParams);
 
@@ -1812,6 +1853,13 @@ class KDTreeSingleIndexAdaptor
                 " use radiusSearch instead");
 
             return nFound;
+    }
+
+    Size radiusSearchCount(
+        const ElementType *query_point, const DistanceType& radius, const SearchParameters &searchParams) const
+    {
+            RadiusResultSetCount<DistanceType, IndexType> resultSet(radius);
+            return radiusSearchCustomCallback(query_point, resultSet, searchParams);
     }
 
     /**

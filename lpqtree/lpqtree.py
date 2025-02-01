@@ -236,7 +236,7 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
 
         return ids_x, ids_tree
 
-    def radius_neighbors(self, X, radius=None, return_distance=True, n_jobs=1, no_return=False):
+    def radius_neighbors(self, X, radius=None, return_distance=True, n_jobs=1, no_return=False, count_only=False):
         """
         Compute radius search for each streamlines in X searching into the KDTree,
         and return a list of indices containing the neighborhood information.
@@ -254,7 +254,9 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         no_return : bool
             Avoid directly returning the result, to avoid memory overhead,
             KDTree get_rows(), get_cols() and get_dists() can be use afterward
-
+        count_only : bool
+            Only count and return the number of element within the radius
+            results is returned or accessible with get_rows()
 
         Returns
         -------
@@ -276,16 +278,24 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         else:
             self.radius = radius
 
-        if n_jobs == 1:
-            if return_distance:
-                self.index.radius_neighbors_idx_dists(X, radius)
+        if count_only:
+            if n_jobs == 1:
+                self.index.radius_neighbors_count(X, radius)
             else:
-                self.index.radius_neighbors_idx(X, radius)
+                self.index.radius_neighbors_count_multithreaded(X, radius, n_jobs)
+
+            return self.index.getResultLengths()
         else:
-            if return_distance:
-                self.index.radius_neighbors_idx_dists_multithreaded(X, radius, n_jobs)
+            if n_jobs == 1:
+                if return_distance:
+                    self.index.radius_neighbors_idx_dists(X, radius)
+                else:
+                    self.index.radius_neighbors_idx(X, radius)
             else:
-                self.index.radius_neighbors_idx_multithreaded(X, radius, n_jobs)
+                if return_distance:
+                    self.index.radius_neighbors_idx_dists_multithreaded(X, radius, n_jobs)
+                else:
+                    self.index.radius_neighbors_idx_multithreaded(X, radius, n_jobs)
 
         self._nb_vts_in_search = X.shape[0]
 
@@ -300,7 +310,7 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
 
         return ids_x, ids_tree
 
-    def radius_neighbors_full(self, X_mpts, Data_full, X_full, radius, n_jobs=1):
+    def radius_neighbors_full(self, X_mpts, Data_full, X_full, radius, n_jobs=1, count_only=False):
         """
         Advanced radius_neighbors search using 2 sampling for each data point.
         Compute radius search for each streamlines in X searching into the KDTree,
@@ -321,6 +331,9 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
             Searching Radius
         n_jobs : integer
             Number of processor cores (multithreading)
+        count_only : bool
+            Only count and return the number of element within the radius
+            results is returned or accessible with get_count()
         """
         if X_mpts.ndim == 3:
             X_mpts = X_mpts.reshape((X_mpts.shape[0], -1))
@@ -342,12 +355,21 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         mpts_radius = radius * (nb_mpts / nb_dim)**(1.0/pnorm)
 
         self._nb_vts_in_search = X_mpts.shape[0]
-        if n_jobs == 1:
-            self.index.radius_neighbors_idx_dists_full(X_mpts, Data_full, X_full, mpts_radius, radius)
-        else:
-            self.index.radius_neighbors_idx_dists_full_multithreaded(X_mpts, Data_full, X_full, mpts_radius, radius, n_jobs)
 
-    def fit_and_radius_search(self, tree_vts, search_vts, radius, n_jobs=1, nb_mpts=None):
+        if count_only:
+            if n_jobs == 1:
+                self.index.radius_neighbors_count_full(X_mpts, Data_full, X_full, mpts_radius, radius)
+            else:
+                self.index.radius_neighbors_count_full_multithreaded(X_mpts, Data_full, X_full, mpts_radius, radius, n_jobs)
+
+            return self.index.getResultLengths()
+        else:
+            if n_jobs == 1:
+                self.index.radius_neighbors_idx_dists_full(X_mpts, Data_full, X_full, mpts_radius, radius)
+            else:
+                self.index.radius_neighbors_idx_dists_full_multithreaded(X_mpts, Data_full, X_full, mpts_radius, radius, n_jobs)
+
+    def fit_and_radius_search(self, tree_vts, search_vts, radius, n_jobs=1, nb_mpts=None, count_only=False):
         """
         Advanced radius_neighbors search using 2 sampling for each data point.
         Compute radius search for each streamlines in X searching into the KDTree,
@@ -365,6 +387,9 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
             Number of processor cores (multithreading)
         nb_mpts : integer
             Number of mean-points used for the advanced search
+        count_only : bool
+            Only count and return the number of element within the radius
+            results is returned or accessible with get_count()
         """
         assert(np.all(tree_vts.shape[1:] == search_vts.shape[1:]))
 
@@ -380,12 +405,12 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
             search_mpts = np.mean(search_vts.reshape((search_vts.shape[0], nb_mpts, nb_averaged, -1)), axis=2)
 
             self.fit(tree_mpts)
-            self.radius_neighbors_full(search_mpts, tree_vts, search_vts, radius, n_jobs=n_jobs)
+            self.radius_neighbors_full(search_mpts, tree_vts, search_vts, radius, n_jobs=n_jobs, count_only=count_only)
 
         else:
             self.fit(tree_vts)
             self.radius_neighbors(search_vts, radius=radius, n_jobs=n_jobs,
-                                  return_distance=True, no_return=True)
+                                  return_distance=(not count_only), no_return=True, count_only=count_only)
 
     def get_dists(self):
         """Return the stored distances after a search"""
@@ -398,6 +423,10 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
     def get_cols(self):
         """Return the stored fitted KDTree points (search) indices"""
         return self.index.getResultIndicesCol()
+
+    def get_count(self):
+        """Return the stored count (inside radius) per query points"""
+        return self.index.getResultLengths()
 
     def get_csr_matrix(self):
         """Return the stored search results indices as a sparse csr_matrix"""

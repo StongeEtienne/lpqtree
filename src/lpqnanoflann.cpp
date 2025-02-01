@@ -33,6 +33,9 @@ class AbstractKDTree {
       const num_t *query, num_t radius,
       std::vector<size_t> &ret_matches,
       nanoflann::SearchParameters params) = 0;
+  virtual size_t radiusSearchCount(
+      const num_t *query, num_t radius,
+      nanoflann::SearchParameters params) = 0;
   virtual void knnSearch(const num_t *query, size_t num_closest,
                          size_t *out_indices, num_t *out_distances_sq) = 0;
   virtual size_t rknnSearch(const num_t *query, size_t num_closest,
@@ -100,6 +103,11 @@ struct KDTreeNumpyAdaptor : public AbstractKDTree<num_t> {
                          std::vector<size_t> &ret_matches,
                          nanoflann::SearchParameters params) {
     return index->radiusSearchIdx(query, radius, ret_matches, params);
+  }
+
+  size_t radiusSearchCount(const num_t *query, num_t radius,
+                           nanoflann::SearchParameters params) {
+    return index->radiusSearchCount(query, radius, params);
   }
 
   const self_t &derived() const { return *this; }
@@ -187,19 +195,31 @@ class KDTree {
   void radius_neighbors_idx_dists(f_np_arr_t, num_t radius = 1.0f);
   void radius_neighbors_idx_dists_full(f_np_arr_t arr, f_np_arr_t full_tree,
     f_np_arr_t full_arr, num_t radius = 1.0f, num_t radius_full = 1.0f);
-  void radius_neighbors_idx_dists_full_multithreaded(f_np_arr_t arr, f_np_arr_t full_tree,
-    f_np_arr_t full_arr, num_t radius = 1.0f, num_t radius_full = 1.0f, size_t nThreads = 1);
+
   void radius_neighbors_idx_multithreaded(
       f_np_arr_t array, num_t radius = 1.0f, size_t nThreads = 1);
   void radius_neighbors_idx_dists_multithreaded(
       f_np_arr_t array, num_t radius = 1.0f, size_t nThreads = 1);
+  void radius_neighbors_idx_dists_full_multithreaded(f_np_arr_t arr, f_np_arr_t full_tree,
+    f_np_arr_t full_arr, num_t radius = 1.0f, num_t radius_full = 1.0f, size_t nThreads = 1);
+
+  // radius search count
+  void radius_neighbors_count(f_np_arr_t, num_t radius = 1.0f);
+  void radius_neighbors_count_full(f_np_arr_t arr, f_np_arr_t full_tree,
+    f_np_arr_t full_arr, num_t radius = 1.0f, num_t radius_full = 1.0f);
+
+  void radius_neighbors_count_multithreaded(
+      f_np_arr_t array, num_t radius = 1.0f, size_t nThreads = 1);
+  void radius_neighbors_count_full_multithreaded(f_np_arr_t arr, f_np_arr_t full_tree,
+    f_np_arr_t full_arr, num_t radius = 1.0f, num_t radius_full = 1.0f, size_t nThreads = 1);
+
 
   int save_index(const std::string path);
 
   AbstractKDTree<num_t> *index;
 
   // result getter
-  i_np_arr_t getResultLenghts();
+  i_np_arr_t getResultLengths();
   i_np_arr_t getResultIndicesPtr();
   i_np_arr_t getResultIndicesRow();
   i_np_arr_t getResultIndicesCol();
@@ -577,7 +597,7 @@ void KDTree<num_t>::rkneighbors(f_np_arr_t array, size_t n_neighbors, num_t radi
   size_t dim = mat.shape(1);
 
   this->m_nbmatches.clear();
-  this->m_nbmatches.resize(n_points, n_neighbors); // this might varies
+  this->m_nbmatches.resize(n_points);
   this->m_indices.resize(n_points);
   this->m_dists.resize(n_points);
   this->dists_exponent = index->get_radius_exp();
@@ -604,7 +624,7 @@ void KDTree<num_t>::rkneighbors_multithreaded(f_np_arr_t array, size_t n_neighbo
   size_t dim = mat.shape(1);
 
   this->m_nbmatches.clear();
-  this->m_nbmatches.resize(n_points, n_neighbors); // this might varies
+  this->m_nbmatches.resize(n_points);
   this->m_indices.resize(n_points);
   this->m_dists.resize(n_points);
   this->dists_exponent = index->get_radius_exp();
@@ -646,10 +666,11 @@ void KDTree<num_t>::radius_neighbors_idx(
 
   const num_t search_radius = index->scale_radius(radius);
 
+  this->m_nbmatches.clear();
   this->m_nbmatches.resize(n_points);
   this->m_indices.resize(n_points);
   this->m_dists.clear();
-  this->dists_exponent = 0;
+  this->dists_exponent = 0; // not needed, since distance is not returned
 
   for (size_t i = 0; i < n_points; i++) {
     this->m_nbmatches[i] = index->radiusSearchIdx(
@@ -668,6 +689,7 @@ void KDTree<num_t>::radius_neighbors_idx_dists(f_np_arr_t array, num_t radius) {
 
   const num_t search_radius = index->scale_radius(radius);
   std::vector<ResultItem<size_t, num_t>> ret_matches;
+  this->m_nbmatches.clear();
   this->m_nbmatches.resize(n_points);
   this->m_indices.resize(n_points);
   this->m_dists.resize(n_points);
@@ -699,6 +721,7 @@ void KDTree<num_t>::radius_neighbors_idx_multithreaded(f_np_arr_t array, num_t r
 
   const num_t search_radius = index->scale_radius(radius);
 
+  this->m_nbmatches.clear();
   this->m_nbmatches.resize(n_points);
   this->m_indices.resize(n_points);
   this->m_dists.clear();
@@ -738,6 +761,7 @@ void KDTree<num_t>::radius_neighbors_idx_dists_multithreaded(f_np_arr_t array, n
   const num_t search_radius = index->scale_radius(radius);
   std::vector<ResultItem<size_t, num_t>> ret_matches;
 
+  this->m_nbmatches.clear();
   this->m_nbmatches.resize(n_points);
   this->m_indices.resize(n_points);
   this->m_dists.resize(n_points);
@@ -775,6 +799,283 @@ void KDTree<num_t>::radius_neighbors_idx_dists_multithreaded(f_np_arr_t array, n
 
 
 template <typename num_t>
+void KDTree<num_t>::radius_neighbors_idx_dists_full(f_np_arr_t array, f_np_arr_t full_tree, f_np_arr_t full_array, num_t radius, num_t radius_full) {
+  const auto mat = array.template unchecked<2>();
+  const auto fmat_t = full_tree.template unchecked<2>();
+  const auto fmat = full_array.template unchecked<2>();
+  const num_t *query_data = mat.data(0, 0);
+  const num_t *query_full = fmat.data(0, 0);
+  const num_t *query_fullt = fmat_t.data(0, 0);
+  const size_t n_points = mat.shape(0);
+  const size_t dim = mat.shape(1);
+
+  const size_t full_dim = fmat.shape(1);
+
+  num_t full_dist;
+
+  const num_t search_radius = index->scale_radius(radius);
+  const num_t search_radius_full = index->scale_radius_full(radius_full);
+
+  std::vector<ResultItem<size_t, num_t>> ret_matches;
+  this->m_nbmatches.clear();
+  this->m_nbmatches.resize(n_points);
+  this->m_indices.resize(n_points);
+  this->m_dists.resize(n_points);
+  this->dists_exponent = index->get_radius_full_exp();
+
+  for (size_t i = 0; i < n_points; i++) {
+    // TODO check if needed or use "radiusSearchIdx" instead
+    const size_t nb_match = index->radiusSearch(
+        &query_data[i * dim], search_radius, ret_matches, this->searchParams);
+
+    for (size_t j = 0; j < nb_match; j++) {
+      full_dist = index->eval_pair(&query_full[i * full_dim], &query_fullt[ret_matches[j].first * full_dim], full_dim);
+
+      if (full_dist < search_radius_full){
+        this->m_indices[i].push_back(ret_matches[j].first);
+        this->m_dists[i].push_back(full_dist);
+      }
+    }
+    this->m_nbmatches[i] = this->m_indices[i].size();
+  }
+  return;
+}
+
+
+template <typename num_t>
+void KDTree<num_t>::radius_neighbors_idx_dists_full_multithreaded(f_np_arr_t array, f_np_arr_t full_tree, f_np_arr_t full_array, num_t radius, num_t radius_full, size_t nThreads) {
+  // reset search results
+  const auto mat = array.template unchecked<2>();
+  const auto fmat_t = full_tree.template unchecked<2>();
+  const auto fmat = full_array.template unchecked<2>();
+  const num_t *query_data = mat.data(0, 0);
+  const num_t *query_full = fmat.data(0, 0);
+  const num_t *query_fullt = fmat_t.data(0, 0);
+  const size_t n_points = mat.shape(0);
+  const size_t dim = mat.shape(1);
+
+  const size_t full_dim = fmat.shape(1);
+
+  const num_t search_radius = index->scale_radius(radius);
+  const num_t search_radius_full = index->scale_radius_full(radius_full);
+
+  this->m_nbmatches.clear();
+  this->m_nbmatches.resize(n_points);
+  this->m_indices.resize(n_points);
+  this->m_dists.resize(n_points);
+  this->dists_exponent = index->get_radius_full_exp();
+
+  auto searchBatch = [&](size_t startIdx, size_t endIdx) {
+    std::vector<ResultItem<size_t, num_t>> ret_matches;
+    num_t full_dist;
+    for (size_t i = startIdx; i < endIdx; i++) {
+      // TODO check if needed or use "radiusSearchIdx" instead
+      const size_t nb_match = index->radiusSearch(&query_data[i * dim], search_radius, ret_matches, this->searchParams);
+
+      this->m_indices[i].resize(0);
+      this->m_dists[i].clear();
+      for (size_t j = 0; j < nb_match; j++) {
+        full_dist = index->eval_pair(&query_full[i * full_dim], &query_fullt[ret_matches[j].first * full_dim], full_dim);
+
+        if (full_dist < search_radius_full){
+          this->m_indices[i].push_back(ret_matches[j].first);
+          this->m_dists[i].push_back(full_dist);
+        }
+      }
+      this->m_nbmatches[i] = this->m_indices[i].size();
+    }
+  };
+
+  std::vector<std::thread> threadPool;
+  size_t batchSize = std::ceil(static_cast<float>(n_points) / nThreads);
+  for (size_t i = 0; i < nThreads; i++) {
+    size_t startIdx = i * batchSize;
+    size_t endIdx = (i + 1) * batchSize;
+    endIdx = std::min(endIdx, n_points);
+    threadPool.push_back(std::thread(searchBatch, startIdx, endIdx));
+  }
+  for (auto &t : threadPool) {
+    t.join();
+  }
+
+  return;
+}
+
+
+template <typename num_t>
+void KDTree<num_t>::radius_neighbors_count(
+    f_np_arr_t array, num_t radius) {
+  const auto mat = array.template unchecked<2>();
+  const num_t *query_data = mat.data(0, 0);
+  const size_t n_points = mat.shape(0);
+  const size_t dim = mat.shape(1);
+
+  const num_t search_radius = index->scale_radius(radius);
+
+  this->m_nbmatches.clear();
+  this->m_nbmatches.resize(n_points);
+  this->m_indices.clear(); // not needed, since we dont use values
+  this->m_dists.clear();
+  this->dists_exponent = 0; // not needed, since distance is not returned
+
+  for (size_t i = 0; i < n_points; i++) {
+    this->m_nbmatches[i] = index->radiusSearchCount(
+        &query_data[i * dim], search_radius, this->searchParams);
+  }
+  return;
+}
+
+template <typename num_t>
+void KDTree<num_t>::radius_neighbors_count_multithreaded(f_np_arr_t array, num_t radius, size_t nThreads) {
+
+  const auto mat = array.template unchecked<2>();
+  const num_t *query_data = mat.data(0, 0);
+  const size_t n_points = mat.shape(0);
+  const size_t dim = mat.shape(1);
+
+  const num_t search_radius = index->scale_radius(radius);
+
+  this->m_nbmatches.clear();
+  this->m_nbmatches.resize(n_points);
+  this->m_indices.clear(); // not needed, since we dont use values
+  this->m_dists.clear();
+  this->dists_exponent = 0; // not needed, since distance is not returned
+
+  auto searchBatch = [&](size_t startIdx, size_t endIdx) {
+    for (size_t i = startIdx; i < endIdx; i++) {
+      this->m_nbmatches[i] = index->radiusSearchCount(
+          &query_data[i * dim], search_radius, this->searchParams);
+    }
+  };
+
+  std::vector<std::thread> threadPool;
+  size_t batchSize = std::ceil(static_cast<float>(n_points) / nThreads);
+  for (size_t i = 0; i < nThreads; i++) {
+    size_t startIdx = i * batchSize;
+    size_t endIdx = (i + 1) * batchSize;
+    endIdx = std::min(endIdx, n_points);
+    threadPool.push_back(std::thread(searchBatch, startIdx, endIdx));
+  }
+  for (auto &t : threadPool) {
+    t.join();
+  }
+
+  return;
+}
+
+
+
+template <typename num_t>
+void KDTree<num_t>::radius_neighbors_count_full(f_np_arr_t array, f_np_arr_t full_tree, f_np_arr_t full_array, num_t radius, num_t radius_full) {
+  const auto mat = array.template unchecked<2>();
+  const auto fmat_t = full_tree.template unchecked<2>();
+  const auto fmat = full_array.template unchecked<2>();
+  const num_t *query_data = mat.data(0, 0);
+  const num_t *query_full = fmat.data(0, 0);
+  const num_t *query_fullt = fmat_t.data(0, 0);
+  const size_t n_points = mat.shape(0);
+  const size_t dim = mat.shape(1);
+
+  const size_t full_dim = fmat.shape(1);
+
+  num_t full_dist;
+  size_t nb_match_full;
+
+  const num_t search_radius = index->scale_radius(radius);
+  const num_t search_radius_full = index->scale_radius_full(radius_full);
+
+  std::vector<ResultItem<size_t, num_t>> ret_matches;
+  //this->m_nbmatches.resize(n_points);
+  //this->m_indices.resize(n_points);
+  //this->m_dists.resize(n_points);
+  //this->dists_exponent = index->get_radius_full_exp();
+
+  this->m_nbmatches.clear();
+  this->m_nbmatches.resize(n_points);
+  this->m_indices.clear(); // not needed, since we dont use values
+  this->m_dists.clear();
+  this->dists_exponent = 0; // not needed, since distance is not returned
+
+
+  for (size_t i = 0; i < n_points; i++) {
+    const size_t nb_match = index->radiusSearch( // TODO check if needed or use "radiusSearchIdx" instead
+        &query_data[i * dim], search_radius, ret_matches, this->searchParams);
+
+    // init count to 0
+    nb_match_full = 0;
+    for (size_t j = 0; j < nb_match; j++) {
+      full_dist = index->eval_pair(&query_full[i * full_dim], &query_fullt[ret_matches[j].first * full_dim], full_dim);
+
+      if (full_dist < search_radius_full){
+        ++nb_match_full;
+      }
+    }
+    this->m_nbmatches[i] = nb_match_full;
+  }
+  return;
+}
+
+
+template <typename num_t>
+void KDTree<num_t>::radius_neighbors_count_full_multithreaded(f_np_arr_t array, f_np_arr_t full_tree, f_np_arr_t full_array, num_t radius, num_t radius_full, size_t nThreads) {
+  // reset search results
+  const auto mat = array.template unchecked<2>();
+  const auto fmat_t = full_tree.template unchecked<2>();
+  const auto fmat = full_array.template unchecked<2>();
+  const num_t *query_data = mat.data(0, 0);
+  const num_t *query_full = fmat.data(0, 0);
+  const num_t *query_fullt = fmat_t.data(0, 0);
+  const size_t n_points = mat.shape(0);
+  const size_t dim = mat.shape(1);
+
+  const size_t full_dim = fmat.shape(1);
+
+  const num_t search_radius = index->scale_radius(radius);
+  const num_t search_radius_full = index->scale_radius_full(radius_full);
+
+  this->m_nbmatches.clear();
+  this->m_nbmatches.resize(n_points);
+  this->m_indices.resize(n_points);
+  this->m_dists.resize(n_points);
+  this->dists_exponent = index->get_radius_full_exp();
+
+  auto searchBatch = [&](size_t startIdx, size_t endIdx) {
+    std::vector<ResultItem<size_t, num_t>> ret_matches;
+    num_t full_dist;
+    for (size_t i = startIdx; i < endIdx; i++) {
+      // TODO check if needed or use "radiusSearchIdx" instead
+      const size_t nb_match = index->radiusSearch(&query_data[i * dim], search_radius, ret_matches, this->searchParams);
+
+      // init count to 0
+      size_t nb_match_full = 0;
+      for (size_t j = 0; j < nb_match; j++) {
+        full_dist = index->eval_pair(&query_full[i * full_dim], &query_fullt[ret_matches[j].first * full_dim], full_dim);
+
+        if (full_dist < search_radius_full){
+          ++nb_match_full;
+        }
+      }
+      this->m_nbmatches[i] = nb_match_full;
+    }
+  };
+
+  std::vector<std::thread> threadPool;
+  size_t batchSize = std::ceil(static_cast<float>(n_points) / nThreads);
+  for (size_t i = 0; i < nThreads; i++) {
+    size_t startIdx = i * batchSize;
+    size_t endIdx = (i + 1) * batchSize;
+    endIdx = std::min(endIdx, n_points);
+    threadPool.push_back(std::thread(searchBatch, startIdx, endIdx));
+  }
+  for (auto &t : threadPool) {
+    t.join();
+  }
+
+  return;
+}
+
+
+template <typename num_t>
 int KDTree<num_t>::save_index(const std::string path) {
   return index->saveIndex(path);
 }
@@ -782,7 +1083,7 @@ int KDTree<num_t>::save_index(const std::string path) {
 
 // ESO Getter for results in python
 template <typename num_t>
-i_np_arr_t KDTree<num_t>::getResultLenghts(){
+i_np_arr_t KDTree<num_t>::getResultLengths(){
   return pybind11::array(this->m_nbmatches.size(), this->m_nbmatches.data());
 }
 
@@ -900,105 +1201,6 @@ pybind11::array_t<num_t, pybind11::array::c_style | pybind11::array::forcecast> 
   return pybind11::array(seq_ptr->size(),seq_ptr->data(), capsule);
 }
 
-template <typename num_t>
-void KDTree<num_t>::radius_neighbors_idx_dists_full(f_np_arr_t array, f_np_arr_t full_tree, f_np_arr_t full_array, num_t radius, num_t radius_full) {
-  const auto mat = array.template unchecked<2>();
-  const auto fmat_t = full_tree.template unchecked<2>();
-  const auto fmat = full_array.template unchecked<2>();
-  const num_t *query_data = mat.data(0, 0);
-  const num_t *query_full = fmat.data(0, 0);
-  const num_t *query_fullt = fmat_t.data(0, 0);
-  const size_t n_points = mat.shape(0);
-  const size_t dim = mat.shape(1);
-
-  const size_t full_dim = fmat.shape(1);
-
-  num_t full_dist;
-
-  const num_t search_radius = index->scale_radius(radius);
-  const num_t search_radius_full = index->scale_radius_full(radius_full);
-
-  std::vector<ResultItem<size_t, num_t>> ret_matches;
-  this->m_nbmatches.resize(n_points);
-  this->m_indices.resize(n_points);
-  this->m_dists.resize(n_points);
-  this->dists_exponent = index->get_radius_full_exp();
-
-  for (size_t i = 0; i < n_points; i++) {
-    const size_t nb_match = index->radiusSearch(
-        &query_data[i * dim], search_radius, ret_matches, this->searchParams);
-
-    for (size_t j = 0; j < nb_match; j++) {
-      full_dist = index->eval_pair(&query_full[i * full_dim], &query_fullt[ret_matches[j].first * full_dim], full_dim);
-
-      if (full_dist < search_radius_full){
-        this->m_indices[i].push_back(ret_matches[j].first);
-        this->m_dists[i].push_back(full_dist);
-      }
-    }
-    this->m_nbmatches[i] = this->m_indices[i].size();
-  }
-  return;
-}
-
-
-template <typename num_t>
-void KDTree<num_t>::radius_neighbors_idx_dists_full_multithreaded(f_np_arr_t array, f_np_arr_t full_tree, f_np_arr_t full_array, num_t radius, num_t radius_full, size_t nThreads) {
-  // reset search results
-  const auto mat = array.template unchecked<2>();
-  const auto fmat_t = full_tree.template unchecked<2>();
-  const auto fmat = full_array.template unchecked<2>();
-  const num_t *query_data = mat.data(0, 0);
-  const num_t *query_full = fmat.data(0, 0);
-  const num_t *query_fullt = fmat_t.data(0, 0);
-  const size_t n_points = mat.shape(0);
-  const size_t dim = mat.shape(1);
-
-  const size_t full_dim = fmat.shape(1);
-
-  const num_t search_radius = index->scale_radius(radius);
-  const num_t search_radius_full = index->scale_radius_full(radius_full);
-
-  this->m_nbmatches.resize(n_points);
-  this->m_indices.resize(n_points);
-  this->m_dists.resize(n_points);
-  this->dists_exponent = index->get_radius_full_exp();
-
-  auto searchBatch = [&](size_t startIdx, size_t endIdx) {
-    std::vector<ResultItem<size_t, num_t>> ret_matches;
-    num_t full_dist;
-    for (size_t i = startIdx; i < endIdx; i++) {
-      const size_t nb_match = index->radiusSearch(&query_data[i * dim], search_radius, ret_matches, this->searchParams);
-
-      this->m_indices[i].resize(0);
-      this->m_dists[i].clear();
-      for (size_t j = 0; j < nb_match; j++) {
-        full_dist = index->eval_pair(&query_full[i * full_dim], &query_fullt[ret_matches[j].first * full_dim], full_dim);
-
-        if (full_dist < search_radius_full){
-          this->m_indices[i].push_back(ret_matches[j].first);
-          this->m_dists[i].push_back(full_dist);
-        }
-      }
-      this->m_nbmatches[i] = this->m_indices[i].size();
-    }
-  };
-
-  std::vector<std::thread> threadPool;
-  size_t batchSize = std::ceil(static_cast<float>(n_points) / nThreads);
-  for (size_t i = 0; i < nThreads; i++) {
-    size_t startIdx = i * batchSize;
-    size_t endIdx = (i + 1) * batchSize;
-    endIdx = std::min(endIdx, n_points);
-    threadPool.push_back(std::thread(searchBatch, startIdx, endIdx));
-  }
-  for (auto &t : threadPool) {
-    t.join();
-  }
-
-  return;
-}
-
 
 PYBIND11_MODULE(nanoflann_ext, m) {
   pybind11::class_<KDTree<float>>(m, "KDTree32")
@@ -1014,7 +1216,11 @@ PYBIND11_MODULE(nanoflann_ext, m) {
       .def("radius_neighbors_idx_dists_multithreaded", &KDTree<float>::radius_neighbors_idx_dists_multithreaded)
       .def("radius_neighbors_idx_dists_full", &KDTree<float>::radius_neighbors_idx_dists_full)
       .def("radius_neighbors_idx_dists_full_multithreaded", &KDTree<float>::radius_neighbors_idx_dists_full_multithreaded)
-      .def("getResultLenghts", &KDTree<float>::getResultLenghts)
+      .def("radius_neighbors_count", &KDTree<float>::radius_neighbors_count)
+      .def("radius_neighbors_count_multithreaded", &KDTree<float>::radius_neighbors_count_multithreaded)
+      .def("radius_neighbors_count_full", &KDTree<float>::radius_neighbors_count_full)
+      .def("radius_neighbors_count_full_multithreaded", &KDTree<float>::radius_neighbors_count_full_multithreaded)
+      .def("getResultLengths", &KDTree<float>::getResultLengths)
       .def("getResultIndicesPtr", &KDTree<float>::getResultIndicesPtr)
       .def("getResultIndicesRow", &KDTree<float>::getResultIndicesRow)
       .def("getResultIndicesCol", &KDTree<float>::getResultIndicesCol)
@@ -1035,7 +1241,11 @@ PYBIND11_MODULE(nanoflann_ext, m) {
       .def("radius_neighbors_idx_dists_multithreaded", &KDTree<double>::radius_neighbors_idx_dists_multithreaded)
       .def("radius_neighbors_idx_dists_full", &KDTree<double>::radius_neighbors_idx_dists_full)
       .def("radius_neighbors_idx_dists_full_multithreaded", &KDTree<double>::radius_neighbors_idx_dists_full_multithreaded)
-      .def("getResultLenghts", &KDTree<double>::getResultLenghts)
+      .def("radius_neighbors_count", &KDTree<double>::radius_neighbors_count)
+      .def("radius_neighbors_count_multithreaded", &KDTree<double>::radius_neighbors_count_multithreaded)
+      .def("radius_neighbors_count_full", &KDTree<double>::radius_neighbors_count_full)
+      .def("radius_neighbors_count_full_multithreaded", &KDTree<double>::radius_neighbors_count_full_multithreaded)
+      .def("getResultLengths", &KDTree<double>::getResultLengths)
       .def("getResultIndicesPtr", &KDTree<double>::getResultIndicesPtr)
       .def("getResultIndicesRow", &KDTree<double>::getResultIndicesRow)
       .def("getResultIndicesCol", &KDTree<double>::getResultIndicesCol)
