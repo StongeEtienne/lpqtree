@@ -1,10 +1,11 @@
+
 #ifndef LPQ_L1_ND_CPP_
 #define LPQ_L1_ND_CPP_
-
 
 #include <algorithm>
 #include <array>
 #include <cmath>   // for abs()
+
 
 // Abstract Struct for all L1 function with accum_dist() and eval_pair()
 template <class T, class DataSource, typename _DistanceType = T>

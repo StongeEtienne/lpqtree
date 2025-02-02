@@ -1,30 +1,15 @@
 
-
-
 #ifndef LPQ_CPP_
 #define LPQ_CPP_
 
+/** the PI constant (required to avoid MSVC missing symbols) */
+// template <typename T> T pi_const() {
+//   return static_cast<T>(3.14159265358979323846);
+// }
 
-#include <algorithm>
-#include <array>
-#include <cassert>
-#include <cmath>   // for abs()
-#include <cstdio>  // for fwrite()
-//#include <cstdlib> // for abs()
-#include <functional>
-#include <limits> // std::reference_wrapper
-#include <stdexcept>
-#include <vector>
-
- /** the PI constant (required to avoid MSVC missing symbols) */
-template <typename T> T pi_const() {
-  return static_cast<T>(3.14159265358979323846);
-}
-
-
- // template <typename T> T sqrtMinv() {
- //   return static_cast<T>(1.0) / std::sqrt(static_cast<T>(M_DIM));
- // }
+// template <typename T> T sqrtMinv() {
+//   return static_cast<T>(1.0) / std::sqrt(static_cast<T>(M_DIM));
+// }
 
 /** Manhattan distance functor (generic version, optimized for
  * high-dimensionality data sets). Corresponding distance traits:

@@ -8,7 +8,6 @@
 #include <iostream>
 
 
-
 // General Lpq MND Adaptor, when P != Q  (otherwise use Lp where P=Q), and P or Q > 2
 template <class T, class DataSource, typename _DistanceType = T>
 struct Lpq_MND_Adaptor {
