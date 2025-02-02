@@ -1222,7 +1222,7 @@ PYBIND11_MODULE(nanoflann_ext, m) {
       .def("save_index", &KDTree<float>::save_index);
 
   pybind11::class_<KDTree<double>>(m, "KDTree64")
-      .def(pybind11::init<size_t, size_t, std::string, float>())
+      .def(pybind11::init<size_t, size_t, std::string, double>())
       .def("fit", &KDTree<double>::fit)
       .def("kneighbors", &KDTree<double>::kneighbors)
       .def("kneighbors_multithreaded", &KDTree<double>::kneighbors_multithreaded)
