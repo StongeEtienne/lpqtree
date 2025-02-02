@@ -515,7 +515,7 @@ void KDTree<num_t>::fit(f_np_arr_t points, std::string index_path, size_t ndim) 
     // General Lpq distance where p != q
     index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_Lpq_MND>(points, leaf_size);
   }
-  // TODO enforce at initialization
+  // Setup lpq dist properties, for exponent, and distance eval
   index->setup_lpq(p, q, ndim);
 
 
@@ -542,10 +542,9 @@ void KDTree<num_t>::kneighbors(f_np_arr_t array, size_t n_neighbors) {
 
   for (size_t i = 0; i < n_points; i++) {
       const num_t *query_point = &query_data[i * dim];
-      m_indices[i].resize(n_neighbors); // TODO should it be reserved ?
-      m_dists[i].resize(n_neighbors); // TODO should it be reserved ?
+      m_indices[i].resize(n_neighbors);
+      m_dists[i].resize(n_neighbors);
       index->knnSearch(query_point, n_neighbors, this->m_indices[i].data(), this->m_dists[i].data());
-      // TODO test // m_dists[i].size() == this->m_nbmatches[i]
   }
 
   return;
@@ -567,10 +566,9 @@ void KDTree<num_t>::kneighbors_multithreaded(f_np_arr_t array, size_t n_neighbor
   auto searchBatch = [&](size_t startIdx, size_t endIdx) {
     for (size_t i = startIdx; i < endIdx; i++) {
       const num_t *query_point = &query_data[i * dim];
-      m_indices[i].resize(n_neighbors); // TODO should it be reserved ?
-      m_dists[i].resize(n_neighbors); // TODO should it be reserved ?
+      m_indices[i].resize(n_neighbors);
+      m_dists[i].resize(n_neighbors);
       index->knnSearch(query_point, n_neighbors, this->m_indices[i].data(), this->m_dists[i].data());
-      // TODO test // m_dists[i].size() == this->m_nbmatches[i]
     }
   };
 
@@ -602,14 +600,13 @@ void KDTree<num_t>::rkneighbors(f_np_arr_t array, size_t n_neighbors, num_t radi
   this->m_dists.resize(n_points);
   this->dists_exponent = index->get_radius_exp();
 
-  const num_t search_radius = index->scale_radius(radius); // TODO test
+  const num_t search_radius = index->scale_radius(radius);
 
   for (size_t i = 0; i < n_points; i++) {
       const num_t *query_point = &query_data[i * dim];
       m_indices[i].reserve(n_neighbors);
-      m_dists[i].reserve(n_neighbors); // TODO test
+      m_dists[i].reserve(n_neighbors);
       this->m_nbmatches[i] = index->rknnSearch(query_point, n_neighbors, this->m_indices[i].data(), this->m_dists[i].data(), search_radius);
-      // TODO test // m_dists[i].size() == this->m_nbmatches[i]
   }
 
   return;
@@ -629,7 +626,7 @@ void KDTree<num_t>::rkneighbors_multithreaded(f_np_arr_t array, size_t n_neighbo
   this->m_dists.resize(n_points);
   this->dists_exponent = index->get_radius_exp();
 
-  const num_t search_radius = index->scale_radius(radius); // TODO test
+  const num_t search_radius = index->scale_radius(radius);
 
   auto searchBatch = [&](size_t startIdx, size_t endIdx) {
     for (size_t i = startIdx; i < endIdx; i++) {
@@ -637,7 +634,6 @@ void KDTree<num_t>::rkneighbors_multithreaded(f_np_arr_t array, size_t n_neighbo
       m_indices[i].reserve(n_neighbors);
       m_dists[i].reserve(n_neighbors);
       this->m_nbmatches[i] = index->rknnSearch(query_point, n_neighbors, this->m_indices[i].data(), this->m_dists[i].data(), search_radius);
-      // TODO test // m_dists[i].size() == this->m_nbmatches[i]
     }
   };
 
