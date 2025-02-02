@@ -53,5 +53,6 @@ jobs:
     - name: Test with pytest
       shell: pwsh
       run: |
+        conda activate lpqtree-env
         pip install -e .
         pytest -svv tests/
