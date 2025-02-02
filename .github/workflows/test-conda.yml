@@ -33,7 +33,7 @@ jobs:
       uses: conda-incubator/setup-miniconda@v2
       with:
         auto-update-conda: true
-        auto-activate-base: true
+        auto-activate-base: false
         activate-environment: lpqtree-env
         python-version: ${{ matrix.python-version }}
         channels: conda-forge
@@ -42,8 +42,8 @@ jobs:
     - name: Install dependencies
       shell: pwsh
       run: |
-        conda install -n lpqtree --yes conda-build conda-verify flake8 libstdcxx-ng=12
-        conda install -n lpqtree --yes --file=requirements-test.txt
+        conda install -n lpqtree-env --yes conda-build conda-verify flake8 libstdcxx-ng=12
+        conda install -n lpqtree-env --yes --file=requirements-test.txt
 
     - name: Install 
       shell: pwsh
