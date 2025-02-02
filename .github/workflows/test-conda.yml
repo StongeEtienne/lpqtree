@@ -42,6 +42,7 @@ jobs:
       run: |
         conda install --yes -n lpqtree-env flake8 pytest
         conda install --yes -n lpqtree-env --file=requirements-test.txt
+        conda install --yes -c conda-forge libstdcxx-ng
     # - name: Lint with flake8
     #   shell: pwsh
     #   run: |
