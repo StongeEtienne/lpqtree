@@ -14,20 +14,6 @@ SUPPORTED_DIM = [2, 3]
 # SUPPORTED_METRIC = ["lpq"] where p and q are any digit
 
 
-def pickler(c):
-    X = c._fit_X if hasattr(c, "_fit_X") else None
-    return unpickler, (c.n_neighbors, c.radius, c.leaf_size, c.metric, X)
-
-
-def unpickler(n_neighbors, radius, leaf_size, metric, X):
-    # Recreate an kd-tree instance
-    tree = KDTree(n_neighbors, radius, leaf_size, metric)
-    # Unpickling of the fitted instance
-    if X is not None:
-        tree.fit(X)
-    return tree
-
-
 def _check_arg(points):
     if points.dtype not in SUPPORTED_TYPES:
         raise ValueError(f"Supported types: {points.dtype} not in {SUPPORTED_TYPES}")
@@ -36,7 +22,7 @@ def _check_arg(points):
 
 
 class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
-    def __init__(self, n_neighbors=5, radius=1.0, leaf_size=10, metric="l2"):
+    def __init__(self, n_neighbors=1, radius=1.0, leaf_size=10, metric="l2"):
         """
         Lpq KDTree initialisation, where the "metric"  should to be set,
         the "n_neighbors" and "radius" can be changed afterward.
@@ -55,7 +41,7 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         """
 
         metric = metric.lower()
-        if len(metric) < 2 or not metric[1:].isnumeric():
+        if len(metric) < 2 or len(metric) > 3 or metric[0] != 'l' or (not metric[1:].isnumeric()):
             raise ValueError(f"Metric should start with 'l' followed with 1 or 2 numerical value")
 
         super().__init__(
@@ -67,7 +53,7 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         self._nb_vts_in_tree = None
         self._nb_vts_in_search = None
 
-    def fit(self, X: np.ndarray, index_path: Optional[str] = None):
+    def fit(self, X: np.ndarray):
         """
         Create the Lpq KDTree with the given list of vertices / matrices (X[i]).
 
@@ -75,24 +61,13 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         ----------
         X : np.ndarray
             List of points (for Lp) or List of matrices (for Lpq).
-        index_path : str
-            str Path to a previously built index.
         """
         _check_arg(X)
-        if X.dtype == np.float32:
-            self.index = nanoflann_ext.KDTree32(
-                self.n_neighbors, self.leaf_size, self.metric, self.radius
-            )
-        else:
-            self.index = nanoflann_ext.KDTree64(
-                self.n_neighbors, self.leaf_size, self.metric, self.radius
-            )
 
         if X.shape[1] > 64:
             warnings.warn(
                 "KD Tree structure is not a good choice for high dimensional spaces."
-                "Consider a more suitable search structure."
-            )
+                "Consider a more suitable search structure.")
 
         if self.metric == "l2" or self.metric == "l1":
             last_dim = 1
@@ -104,7 +79,15 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
 
         self._fit_X = X.reshape((X.shape[0], -1))
         self._nb_vts_in_tree = self._fit_X.shape[0]
-        self.index.fit(self._fit_X, index_path if index_path is not None else "", last_dim)
+
+        # Setup tree
+        if X.dtype == np.float32:
+            self.index = nanoflann_ext.KDTree32(
+                self.n_neighbors, self.leaf_size, self.metric, self.radius)
+        else:
+            self.index = nanoflann_ext.KDTree64(
+                self.n_neighbors, self.leaf_size, self.metric, self.radius)
+        self.index.fit(self._fit_X, "", last_dim)
 
     def get_data(self, copy: bool = True) -> np.ndarray:
         """
@@ -126,10 +109,6 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
             return self._fit_X.copy()
         else:
             return self._fit_X
-
-    def save_index(self, path: str) -> int:
-        """Save index to the binary file. NOTE: Data points are NOT stored."""
-        return self.index.save_index(path)
 
     def query(self, X, k=1, return_distance=True, n_jobs=1):
         """
@@ -174,6 +153,8 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         else:
             self.index.kneighbors_multithreaded(X, k, n_jobs)
 
+        self._nb_vts_in_search = X.shape[0]
+
         knn_res = self.index.getResultIndicesCol().reshape((-1, k))
         if return_distance:
             dists = self.index.getResultDists().reshape((-1, k))
@@ -181,7 +162,7 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
 
         return knn_res
 
-    def radius_knn(self, X, k, radius, return_distance=True, n_jobs=1, no_return=False):
+    def radius_knn(self, X, k, radius=None, return_distance=True, n_jobs=1, no_return=False):
         """
         Compute radius search for each streamlines in X searching into the KDTree,
         and return a list of indices containing the neighborhood information.
@@ -217,6 +198,20 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
 
         if X.ndim == 3:
             X = X.reshape((X.shape[0], -1))
+
+        if radius is None:
+            radius = self.radius
+        else:
+            self.radius = radius
+
+        if k is None:
+            k = self.n_neighbors
+        else:
+            self.n_neighbors = k
+
+        if k > len(self._fit_X):
+            raise ValueError(f"KD Tree query bigger for {k}-NN however the "
+                             f"KD Tree only contain {len(self._fit_X)} points")
 
         if n_jobs == 1:
             self.index.rkneighbors(X, k, radius)
@@ -393,12 +388,15 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         """
         assert(np.all(tree_vts.shape[1:] == search_vts.shape[1:]))
 
-        if nb_mpts and nb_mpts < tree_vts.shape[1]:
+        if nb_mpts:
             if not(self.metric in ["l1", "l2", "l11", "l21"]):
                 raise ValueError(f"Only  l1, l2, l11, or l21  can be used with nb_mpts")
 
+            if nb_mpts >= tree_vts.shape[1]:
+                raise ValueError(f"nb_mpts must be smaller than tree_vts.shape[1] : {(nb_mpts, tree_vts.shape[1])}")
+
             if tree_vts.shape[1] % nb_mpts != 0:
-                raise ValueError(f"nb_mpts must be a divisor of tree_vts.shape[2]")
+                raise ValueError(f"nb_mpts must be a divisor of tree_vts.shape[1] : {(nb_mpts, tree_vts.shape[1])}")
 
             nb_averaged = tree_vts.shape[1] // nb_mpts
             tree_mpts = np.mean(tree_vts.reshape((tree_vts.shape[0], nb_mpts, nb_averaged, -1)), axis=2)
@@ -444,8 +442,4 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
 
     def get_csc_matrix(self):
         """Return the stored search results indices as a sparse csc_matrix"""
-        return self.get_coo_matrix().to_csc()
-
-
-# Register pickling of non-trivial types
-copyreg.pickle(KDTree, pickler, unpickler)
+        return self.get_coo_matrix().tocsc()
