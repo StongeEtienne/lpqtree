@@ -7,6 +7,26 @@ import subprocess
 __version__ = '0.0.6'
 
 
+class get_pybind_include(object):
+    """Helper class to determine the pybind11 include path
+    The purpose of this class is to postpone importing pybind11
+    until it is actually installed, so that the ``get_include()``
+    method can be invoked. """
+
+    def __init__(self, user=False):
+        try:
+            import pybind11
+        except ImportError:
+            if subprocess.call([sys.executable, '-m', 'pip', 'install', 'pybind11']):
+                raise RuntimeError('pybind11 install failed.')
+
+        self.user = user
+
+    def __str__(self):
+        import pybind11
+        return pybind11.get_include(self.user)
+
+
 ext_modules = [
     Extension(
         'nanoflann_ext',
@@ -26,6 +46,8 @@ ext_modules = [
          'nanoflann/include/lpq_lpq_mnd.cpp'],
         include_dirs=[
             # Path to pybind11 headers
+            get_pybind_include(),
+            get_pybind_include(user=True),
             'nanoflann/include',
         ],
         language='c++'
