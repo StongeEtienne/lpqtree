@@ -105,9 +105,11 @@ class BuildExt(build_ext):
         opts = self.c_opts.get(ct, [])
         link_opts = self.l_opts.get(ct, [])
         opts.append("-ffast-math")
-        opts.append("-msse2")
-        opts.append("-mfpmath=sse")
         opts.append("-march=native")
+        if sys.platform != 'darwin':
+            # Linux or windows
+            opts.append("-msse2")
+            opts.append("-mfpmath=sse")
         if ct == 'unix':
             if '-Wstrict-prototypes' in self.compiler.compiler_so:
                 self.compiler.compiler_so.remove('-Wstrict-prototypes')
