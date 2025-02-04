@@ -9,6 +9,10 @@ on:
   pull_request:
     branches: [ main ]
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build:
 
@@ -30,7 +34,7 @@ jobs:
         path: ~/conda_pkgs_dir
         key: conda-${{ matrix.os }}-python-${{ matrix.python-version }}-${{ hashFiles('environment-ci.yml') }}
     - name: Setup Miniconda
-      uses: conda-incubator/setup-miniconda@v2
+      uses: conda-incubator/setup-miniconda@v3
       with:
         auto-update-conda: true
         auto-activate-base: false
@@ -40,22 +44,13 @@ jobs:
         channel-priority: strict
         use-only-tar-bz2: true
     - name: Install dependencies
-      shell: pwsh
       run: |
         conda install -n lpqtree-env --yes conda-build conda-verify flake8 libstdcxx-ng=12
         conda install -n lpqtree-env --yes --file=requirements-test.txt
 
-    - name: Install 
-      shell: pwsh
+    - name: Install and run pytest
       run: |
-        pip install -e .
-    
-    - name: Install tests requirements
-      shell: pwsh
-      run: |
-        conda install --yes --file=requirements-test.txt
-        
-    - name: Run tests with pytest
-      shell: pwsh
-      run: |
+        pip install  .
+        pip install -r requirements-test.txt
         pytest -svv tests/
+
