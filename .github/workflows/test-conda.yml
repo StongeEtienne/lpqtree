@@ -30,20 +30,21 @@ jobs:
         path: ~/conda_pkgs_dir
         key: conda-${{ matrix.os }}-python-${{ matrix.python-version }}-${{ hashFiles('environment-ci.yml') }}
     - name: Setup Miniconda
-      uses: conda-incubator/setup-miniconda@v2
+      uses: conda-incubator/setup-miniconda@v3
       with:
         auto-update-conda: true
         auto-activate-base: false
         activate-environment: lpqtree-env
         python-version: ${{ matrix.python-version }}
-        channels: defaults,conda-forge
+        channels: conda-forge,defaults
         channel-priority: strict
         use-only-tar-bz2: true
     - name: Install dependencies
       shell: pwsh
       run: |
-        conda install -n lpqtree-env --yes conda-build conda-verify flake8 libstdcxx-ng=12
+        conda install -n lpqtree-env --yes conda-build conda-verify flake8
         conda install -n lpqtree-env --yes --file=requirements-test.txt
+        conda install -n lpqtree-env --yes conda-forge::libstdcxx-ng=12
 
     - name: Install 
       shell: pwsh
