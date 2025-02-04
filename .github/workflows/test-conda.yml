@@ -48,6 +48,7 @@ jobs:
     - name: Install and run pytest
       shell: pwsh
       run: |
+        conda activate lpqtree-env
         pip install  .
         pip install -r requirements-test.txt
         pytest -svv tests/
