@@ -42,20 +42,16 @@ jobs:
     - name: Install dependencies
       shell: pwsh
       run: |
-        conda install -n lpqtree-env --yes conda-build conda-verify flake8 libstdcxx-ng=12
-        conda install -n lpqtree-env --yes --file=requirements-test.txt
+        #conda install -n lpqtree-env --yes conda-build conda-verify flake8 libstdcxx-ng=12
+        #conda install -n lpqtree-env --yes --file=requirements-test.txt
 
     - name: Install 
       shell: pwsh
       run: |
         pip install -e .
-    
-    - name: Install tests requirements
-      shell: pwsh
-      run: |
-        conda install --yes --file=requirements-test.txt
         
     - name: Run tests with pytest
       shell: pwsh
       run: |
+        pip install -r requirements-test.txt
         pytest -svv tests/
