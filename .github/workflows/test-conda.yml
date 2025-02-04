@@ -18,7 +18,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: [3.9, '3.10', '3.11']
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest] 
             # macos-latest
 
     steps:
@@ -30,13 +30,13 @@ jobs:
         path: ~/conda_pkgs_dir
         key: conda-${{ matrix.os }}-python-${{ matrix.python-version }}-${{ hashFiles('environment-ci.yml') }}
     - name: Setup Miniconda
-      uses: conda-incubator/setup-miniconda@v3
+      uses: conda-incubator/setup-miniconda@v2
       with:
         auto-update-conda: true
         auto-activate-base: false
         activate-environment: lpqtree-env
         python-version: ${{ matrix.python-version }}
-        channels: conda-forge
+        channels: defaults,conda-forge
         channel-priority: strict
         use-only-tar-bz2: true
     - name: Install dependencies
@@ -45,11 +45,17 @@ jobs:
         conda install -n lpqtree-env --yes conda-build conda-verify flake8 libstdcxx-ng=12
         conda install -n lpqtree-env --yes --file=requirements-test.txt
 
-    - name: Install and run pytest
+    - name: Install 
       shell: pwsh
       run: |
-        conda activate lpqtree-env
-        pip install  .
-        pip install -r requirements-test.txt
+        pip install -e .
+    
+    - name: Install tests requirements
+      shell: pwsh
+      run: |
+        conda install --yes --file=requirements-test.txt
+        
+    - name: Run tests with pytest
+      shell: pwsh
+      run: |
         pytest -svv tests/
-
