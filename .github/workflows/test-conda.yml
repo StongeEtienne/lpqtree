@@ -9,10 +9,6 @@ on:
   pull_request:
     branches: [ main ]
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
   build:
 
@@ -44,11 +40,13 @@ jobs:
         channel-priority: strict
         use-only-tar-bz2: true
     - name: Install dependencies
+      shell: pwsh
       run: |
         conda install -n lpqtree-env --yes conda-build conda-verify flake8 libstdcxx-ng=12
         conda install -n lpqtree-env --yes --file=requirements-test.txt
 
     - name: Install and run pytest
+      shell: pwsh
       run: |
         pip install  .
         pip install -r requirements-test.txt
