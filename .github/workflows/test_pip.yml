@@ -33,7 +33,7 @@ jobs:
         pip install wheel setuptools pip pybind11 --upgrade
     - name: Install package
       run: |
-        pip install -e .
+        pip install .
     - name: Install test requirements
       run: |
         pip install -r requirements-test.txt
