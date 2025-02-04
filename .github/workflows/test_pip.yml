@@ -37,12 +37,13 @@ jobs:
     - name: Install test requirements
       run: |
         pip install -r requirements-test.txt
-    - name: Test with pytest + COVERAGE
-      if: ${{ matrix.python-version == '3.8' && matrix.os == 'ubuntu-latest' }}
-      run: |
-        coverage run -m pytest -svv  tests  # Run the tests and check for test coverage.
-        coverage report -m  # Generate test coverage report.
-        codecov  # Upload the report to codecov
     - name: Test with pytest
+      if: ${{ matrix.python-version != '3.8' || matrix.os != 'ubuntu-latest' }}
       run: |
         pytest -svv tests
+    - name: Run pytest and coverage
+      if: ${{ matrix.python-version == '3.8' && matrix.os == 'ubuntu-latest' }}
+      run: |
+        coverage run -m pytest -svv  tests # Run the tests and check for test coverage.
+        # coverage report -m  # Generate test coverage report.
+        # codecov  # Upload the report to codecov
