@@ -1,5 +1,5 @@
-from setuptools import setup, Extension
-from setuptools.command.build_ext import build_ext
+from setuptools import setup
+from pybind11.setup_helpers import Pybind11Extension, build_ext
 import sys
 import setuptools
 import subprocess
@@ -28,7 +28,7 @@ class get_pybind_include(object):
 
 
 ext_modules = [
-    Extension(
+    Pybind11Extension(
         'nanoflann_ext',
         ['src/lpqnanoflann.cpp',
          'nanoflann/include/nanoflann.cpp',
@@ -135,8 +135,9 @@ setup(
     ext_modules=ext_modules,
     license='BSD 2-Clause',
     packages=['lpqtree'],
-    install_requires=['pybind11>=2.4', 'scikit-learn>=1.0'],
-    setup_requires=['pybind11>=2.4'],
+    install_requires=['pybind11>=2.8', 'scikit-learn>=1.2',
+                      'numpy>=1.22.3', 'scipy>=1.3.2'],
+    setup_requires=['pybind11>=2.8'],
     cmdclass={'build_ext': BuildExt},
     zip_safe=False,
 )
