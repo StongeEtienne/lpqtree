@@ -39,21 +39,16 @@ jobs:
         channels: conda-forge
         channel-priority: strict
         use-only-tar-bz2: true
-    - name: Install dependencies
-      shell: pwsh
-      run: |
-        conda install -n lpqtree-env --yes conda-build conda-verify flake8 libstdcxx-ng=12
-        conda install -n lpqtree-env --yes --file=requirements-test.txt
 
-    - name: Install 
+    - name: Install
       shell: pwsh
       run: |
         pip install -e .
-    
-    - name: Install tests requirements
+
+    - name: Install test requirements
       shell: pwsh
       run: |
-        conda install --yes --file=requirements-test.txt
+        pip install -r requirements-test.txt
         
     - name: Run tests with pytest
       shell: pwsh
