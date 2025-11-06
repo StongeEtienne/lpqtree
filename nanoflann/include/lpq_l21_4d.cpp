@@ -7,7 +7,7 @@
 #include <cmath>   // for abs()
 
 
-// Abstract Struct for all L21 2D points function with accum_dist() and eval_pair()
+// Abstract Struct for all L21 4D points function with accum_dist() and eval_pair()
 template <class T, class DataSource, typename _DistanceType = T>
 struct L21_M_4D {
   typedef T ElementType;
