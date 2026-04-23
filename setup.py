@@ -3,7 +3,7 @@ from pybind11.setup_helpers import Pybind11Extension, build_ext
 import platform
 from pathlib import Path
 
-__version__ = '0.0.7'
+__version__ = '0.0.8'
 
 long_description = (Path(__file__).parent / "README.md").read_text(encoding="utf-8")
 
