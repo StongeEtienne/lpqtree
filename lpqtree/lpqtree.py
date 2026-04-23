@@ -24,8 +24,13 @@ def _check_arg(points):
 class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
     def __init__(self, n_neighbors=1, radius=1.0, leaf_size=10, metric="l2"):
         """
-        Lpq KDTree initialisation, where the "metric"  should to be set,
+        Lpq KDTree initialisation, where the "metric" should to be set,
         the "n_neighbors" and "radius" can be changed afterward.
+
+        Extended sklearn KDTree for:
+        - Lpq metrics
+        - self-neighbor queries (not in sklearn)
+        - advanced radius search with mean-points
 
         Parameters
         ----------
@@ -50,8 +55,18 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
 
         self.index = None
         self._fit_X = None
+        self._last_dim = None
         self._nb_vts_in_tree = None
         self._nb_vts_in_search = None
+
+    def _validate_and_prepare_input(self, X):
+        check_is_fitted(self, ["_fit_X"], all_or_any=any)
+        _check_arg(X)
+        self._nb_vts_in_search = X.shape[0]
+
+        if X.ndim == 3:
+            return X.reshape((X.shape[0], -1))
+        return X
 
     def fit(self, X: np.ndarray):
         """
@@ -87,7 +102,9 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         else:
             self.index = nanoflann_ext.KDTree64(
                 self.n_neighbors, self.leaf_size, self.metric, self.radius)
+
         self.index.fit(self._fit_X, "", last_dim)
+        self._last_dim = last_dim
 
     def get_data(self, copy: bool = True) -> np.ndarray:
         """
@@ -133,27 +150,17 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         dists : numpy array (len(X) x k)
             Distances for all k-nearest neighbors
         """
-        check_is_fitted(self, ["_fit_X"], all_or_any=any)
-        _check_arg(X)
-
-        if X.ndim == 3:
-            X = X.reshape((X.shape[0], -1))
+        X = self._validate_and_prepare_input(X)
 
         if k is None:
             k = self.n_neighbors
-        else:
-            self.n_neighbors = k
 
         if k > len(self._fit_X):
-            raise ValueError(f"KD Tree query bigger for {k}-NN however the "
-                             f"KD Tree only contain {len(self._fit_X)} points")
+            raise ValueError(f"Query of {k}-NN, however the KD Tree only"
+                             f" contain {len(self._fit_X)} points")
 
-        if n_jobs == 1:
-            self.index.kneighbors(X, k)
-        else:
-            self.index.kneighbors_multithreaded(X, k, n_jobs)
-
-        self._nb_vts_in_search = X.shape[0]
+        # Tree Search
+        self.index.kneighbors(X, k, n_jobs)
 
         knn_res = self.index.getResultIndicesCol().reshape((-1, k))
         if return_distance:
@@ -193,32 +200,19 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         dists : numpy array (len(X) x k)
             Distances for each match
         """
-        check_is_fitted(self, ["_fit_X"], all_or_any=any)
-        _check_arg(X)
-
-        if X.ndim == 3:
-            X = X.reshape((X.shape[0], -1))
+        X = self._validate_and_prepare_input(X)
 
         if radius is None:
             radius = self.radius
-        else:
-            self.radius = radius
 
         if k is None:
             k = self.n_neighbors
-        else:
-            self.n_neighbors = k
 
         if k > len(self._fit_X):
             raise ValueError(f"KD Tree query bigger for {k}-NN however the "
                              f"KD Tree only contain {len(self._fit_X)} points")
 
-        if n_jobs == 1:
-            self.index.rkneighbors(X, k, radius)
-        else:
-            self.index.rkneighbors_multithreaded(X, k, radius, n_jobs)
-
-        self._nb_vts_in_search = X.shape[0]
+        self.index.rkneighbors(X, k, radius, n_jobs)
 
         if no_return:
             return
@@ -230,6 +224,7 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
             return ids_x, ids_tree, dists
 
         return ids_x, ids_tree
+
 
     def radius_neighbors(self, X, radius=None, return_distance=True, n_jobs=1, no_return=False, count_only=False):
         """
@@ -262,37 +257,20 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         dists : numpy array (len(X) x k)
             Distances for each match
         """
-        check_is_fitted(self, ["_fit_X"], all_or_any=any)
-        _check_arg(X)
-
-        if X.ndim == 3:
-            X = X.reshape((X.shape[0], -1))
+        X = self._validate_and_prepare_input(X)
 
         if radius is None:
             radius = self.radius
-        else:
-            self.radius = radius
 
         if count_only:
-            if n_jobs == 1:
-                self.index.radius_neighbors_count(X, radius)
-            else:
-                self.index.radius_neighbors_count_multithreaded(X, radius, n_jobs)
+            self.index.radius_neighbors_count(X, radius, n_jobs)
 
             return self.index.getResultLengths()
         else:
-            if n_jobs == 1:
-                if return_distance:
-                    self.index.radius_neighbors_idx_dists(X, radius)
-                else:
-                    self.index.radius_neighbors_idx(X, radius)
+            if return_distance:
+                self.index.radius_neighbors_idx_dists(X, radius, n_jobs)
             else:
-                if return_distance:
-                    self.index.radius_neighbors_idx_dists_multithreaded(X, radius, n_jobs)
-                else:
-                    self.index.radius_neighbors_idx_multithreaded(X, radius, n_jobs)
-
-        self._nb_vts_in_search = X.shape[0]
+                self.index.radius_neighbors_idx(X, radius, n_jobs)
 
         if no_return:
             return
@@ -305,7 +283,7 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
 
         return ids_x, ids_tree
 
-    def radius_neighbors_full(self, X_mpts, Data_full, X_full, radius, n_jobs=1, count_only=False):
+    def radius_neighbors_full(self, X_mpts, data_full, X_full, radius, n_jobs=1, count_only=False):
         """
         Advanced radius_neighbors search using 2 sampling for each data point.
         Compute radius search for each streamlines in X searching into the KDTree,
@@ -313,15 +291,14 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
 
         KDTree should have fitted the "Data_mpts"
 
-
         Parameters
         ----------
         X_mpts : np.ndarray
             List of mean-points, same dimension as the KDTree.fit() data
-        Data_full : np.ndarray
+        data_full : np.ndarray
             List of non averaged points, inside KDTree.fit()
         X_full : np.ndarray
-            List of non averaged points, same dimension as "Data_full"
+            List of non averaged points, same dimension as "data_full"
         radius : float
             Searching Radius
         n_jobs : integer
@@ -330,39 +307,30 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
             Only count and return the number of element within the radius
             results is returned or accessible with get_count()
         """
-        if X_mpts.ndim == 3:
-            X_mpts = X_mpts.reshape((X_mpts.shape[0], -1))
-        if Data_full.ndim == 3:
-            Data_full = Data_full.reshape((Data_full.shape[0], -1))
+        X_mpts = self._validate_and_prepare_input(X_mpts)
+
+        if data_full.ndim == 3:
+            data_full = data_full.reshape((data_full.shape[0], -1))
         if X_full.ndim == 3:
             X_full = X_full.reshape((X_full.shape[0], -1))
 
-        nb_mpts = X_mpts.shape[1]
+        pnorm = float(self.metric[-1])
+        nb_mpts = self._fit_X.shape[1]
         nb_dim = X_full.shape[1]
+        mpts_radius = radius * (nb_mpts / nb_dim) ** (1.0 / pnorm)
 
         assert(X_mpts.shape[1] <= X_full.shape[1])
-        assert(X_full.shape[1] == Data_full.shape[1])
+        assert(X_full.shape[1] == data_full.shape[1])
         assert(X_mpts.shape[0] == X_full.shape[0])
-        assert(self.get_data(copy=False).shape[0] == Data_full.shape[0])
+        assert(self._fit_X.shape[0] == data_full.shape[0])
         assert(nb_dim % nb_mpts == 0)
 
-        pnorm = float(self.metric[-1])
-        mpts_radius = radius * (nb_mpts / nb_dim)**(1.0/pnorm)
-
-        self._nb_vts_in_search = X_mpts.shape[0]
-
         if count_only:
-            if n_jobs == 1:
-                self.index.radius_neighbors_count_full(X_mpts, Data_full, X_full, mpts_radius, radius)
-            else:
-                self.index.radius_neighbors_count_full_multithreaded(X_mpts, Data_full, X_full, mpts_radius, radius, n_jobs)
+            self.index.radius_neighbors_count_full(X_mpts, data_full, X_full, mpts_radius, radius, n_jobs)
 
             return self.index.getResultLengths()
         else:
-            if n_jobs == 1:
-                self.index.radius_neighbors_idx_dists_full(X_mpts, Data_full, X_full, mpts_radius, radius)
-            else:
-                self.index.radius_neighbors_idx_dists_full_multithreaded(X_mpts, Data_full, X_full, mpts_radius, radius, n_jobs)
+            self.index.radius_neighbors_idx_dists_full(X_mpts, data_full, X_full, mpts_radius, radius, n_jobs)
 
     def fit_and_radius_search(self, tree_vts, search_vts, radius, n_jobs=1, nb_mpts=None, count_only=False):
         """
@@ -409,6 +377,209 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
             self.fit(tree_vts)
             self.radius_neighbors(search_vts, radius=radius, n_jobs=n_jobs,
                                   return_distance=(not count_only), no_return=True, count_only=count_only)
+
+    def self_query(self, k=1, return_distance=True, n_jobs=1):
+        """
+        Compute self k-nearest neighbors (knn) in the KDTree, for each X[i]
+
+        Parameters
+        ----------
+        k : int
+            Number of nearest neighbors wanted per slines
+        n_jobs : integer
+            Number of processor cores (multithreading)
+
+        Returns
+        -------
+        knn_res : numpy array (len(X) x k)
+            Reference indices of the k-nearest neighbors of each X[i]
+        dists : numpy array (len(X) x k)
+            Distances for all k-nearest neighbors
+        """
+        check_is_fitted(self, ["_fit_X"], all_or_any=any)
+
+        if k is None:
+            k = self.n_neighbors
+
+        if k > len(self._fit_X) - 1:
+            raise ValueError(f"Query of {k}-NN, however the KD Tree only"
+                             f" contain {len(self._fit_X)-1} non self points")
+
+        self.index.self_kneighbors(k, n_jobs)
+        self._nb_vts_in_search = self._fit_X.shape[0]
+
+        knn_res = self.index.getResultIndicesCol().reshape((-1, k))
+        if return_distance:
+            dists = self.index.getResultDists().reshape((-1, k))
+            return knn_res, dists
+
+        return knn_res
+
+    def self_radius_knn(self, k, radius=None, n_jobs=1):
+        """
+        Compute radius search for each streamlines in X searching into the KDTree,
+        and return a list of indices containing the neighborhood information.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            List of points (for Lp) or List of matrices (for Lpq).
+        k : int
+            Number of nearest neighbors wanted per slines
+        radius : float
+            Maximum Searching Radius
+        return_distance : bool
+            Compute and return the distance
+        n_jobs : integer
+            Number of processor cores (multithreading)
+        no_return : bool
+            Avoid directly returning the result, to avoid memory overhead,
+            KDTree get_rows(), get_cols() and get_dists() can be use afterward
+
+
+        Returns
+        -------
+        ids_x : numpy array
+            Indices of the given X
+        ids_tree : numpy array
+            Indices of the KDTree data
+        dists : numpy array (len(X) x k)
+            Distances for each match
+        """
+        check_is_fitted(self, ["_fit_X"], all_or_any=any)
+
+        if radius is None:
+            radius = self.radius
+
+        if k is None:
+            k = self.n_neighbors
+
+        if k >= len(self._fit_X):
+            raise ValueError(f"self KD Tree query for {k}-NN however the "
+                             f"KD Tree only contain {len(self._fit_X)} points")
+
+        self.index.self_rkneighbors(k, radius, n_jobs)
+        self._nb_vts_in_search = self._fit_X.shape[0]
+
+        ids_x = self.index.getResultIndicesRow()
+        ids_tree = self.index.getResultIndicesCol()
+        return ids_x, ids_tree
+
+    def self_radius_neighbors(self, radius=None, n_jobs=1, nb_pts_to_search=0):
+        """
+        Compute self radius search for each streamlines in X[i], searching in the KDTree.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            List of points (for Lp) or List of matrices (for Lpq).
+        radius : float
+            Searching Radius
+        n_jobs : integer
+            Number of processor cores (multithreading)
+        nb_pts_to_search : integer
+            If not 0: Number of points to search (for partial self search)
+
+        Returns
+        -------
+        ids_x : numpy array
+            Indices of the given X
+        ids_tree : numpy array
+            Indices of the KDTree data
+        dists : numpy array (len(X) x k)
+            Distances for each match
+        """
+        check_is_fitted(self, ["_fit_X"], all_or_any=any)
+
+        if radius is None:
+            radius = self.radius
+
+        if nb_pts_to_search > 0:
+            self._nb_vts_in_search = nb_pts_to_search
+        else:
+            self._nb_vts_in_search = self._fit_X.shape[0]
+
+        self.index.self_radius_neighbors_idx_dists(radius, n_jobs, nb_pts_to_search)
+
+    def self_radius_neighbors_full(self, data_full, radius, n_jobs=1, nb_pts_to_search=0):
+        """
+        Advanced radius_neighbors search using 2 sampling for each data point.
+        Compute self radius search for each streamlines in X[i], searching in the KDTree.
+
+        KDTree should have fitted the "Data_mpts"
+
+        Parameters
+        ----------
+        data_full : np.ndarray
+            List of non averaged points, inside KDTree.fit()
+        radius : float
+            Searching Radius
+        n_jobs : integer
+            Number of processor cores (multithreading)
+        nb_pts_to_search : integer
+            If not 0: Number of points to search (for partial self search)
+        """
+
+        if data_full.ndim == 3:
+            data_full = data_full.reshape((data_full.shape[0], -1))
+
+        pnorm = float(self.metric[-1])
+        nb_mpts = self._fit_X.shape[1]
+        nb_dim = data_full.shape[1]
+        mpts_radius = radius * (nb_mpts / nb_dim) ** (1.0 / pnorm)
+
+        assert(self._fit_X.shape[0] == data_full.shape[0])
+        assert(self._fit_X.shape[1] <= data_full.shape[1])
+        assert(nb_dim % nb_mpts == 0)
+
+        if nb_pts_to_search > 0:
+            self._nb_vts_in_search = nb_pts_to_search
+        else:
+            self._nb_vts_in_search = self._fit_X.shape[0]
+
+        self.index.self_radius_neighbors_idx_dists_full(data_full, mpts_radius, radius, n_jobs, nb_pts_to_search)
+
+    def fit_and_self_radius_search(self, tree_vts, radius, n_jobs=1, nb_mpts=None, both_direction=False):
+        """
+        Advanced radius_neighbors search using 2 sampling for each data point.
+        Compute radius search for each streamlines in X searching into the KDTree,
+        and return a list of indices containing the neighborhood information.
+
+        Parameters
+        ----------
+        tree_vts : np.ndarray
+            List of points / matrices, to fit the KDTree
+        radius : float
+            Searching Radius
+        n_jobs : integer
+            Number of processor cores (multithreading)
+        nb_mpts : integer
+            Number of mean-points used for the advanced search
+        """
+        nb_pts_to_search = 0  # Default for search all points
+        if both_direction:
+            nb_pts_to_search = len(tree_vts)
+            tree_vts = np.concatenate([tree_vts, np.flip(tree_vts, axis=1)])
+
+        if nb_mpts:
+            if not(self.metric in ["l1", "l2", "l11", "l21"]):
+                raise ValueError(f"Only  l1, l2, l11, or l21  can be used with nb_mpts")
+
+            if nb_mpts >= tree_vts.shape[1]:
+                raise ValueError(f"nb_mpts must be smaller than tree_vts.shape[1] : {(nb_mpts, tree_vts.shape[1])}")
+
+            if tree_vts.shape[1] % nb_mpts != 0:
+                raise ValueError(f"nb_mpts must be a divisor of tree_vts.shape[1] : {(nb_mpts, tree_vts.shape[1])}")
+
+            nb_averaged = tree_vts.shape[1] // nb_mpts
+            tree_mpts = np.mean(tree_vts.reshape((tree_vts.shape[0], nb_mpts, nb_averaged, -1)), axis=2)
+
+            self.fit(tree_mpts)
+            self.self_radius_neighbors_full(tree_vts, radius=radius, n_jobs=n_jobs, nb_pts_to_search=nb_pts_to_search)
+
+        else:
+            self.fit(tree_vts)
+            self.self_radius_neighbors(radius=radius, n_jobs=n_jobs, nb_pts_to_search=nb_pts_to_search)
 
     def get_dists(self):
         """Return the stored distances after a search"""
