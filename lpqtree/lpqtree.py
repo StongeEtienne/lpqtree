@@ -581,6 +581,22 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
             self.fit(tree_vts)
             self.self_radius_neighbors(radius=radius, n_jobs=n_jobs, nb_pts_to_search=nb_pts_to_search)
 
+        if both_direction:
+            mtx_shape = (self._nb_vts_in_search, self._nb_vts_in_search)
+            rows = self.get_rows()
+            cols = self.get_cols()
+            max_val = radius + 1.0
+            rev_dists = max_val - self.get_dists()
+            mask = cols < nb_pts_to_search
+            imask = ~mask
+            mtx_1 = coo_matrix((rev_dists[mask], (rows[mask], cols[mask])), shape=mtx_shape)
+            mtx_2 = coo_matrix((rev_dists[imask], (rows[imask], cols[imask] - nb_pts_to_search)), shape=mtx_shape)
+            res = mtx_1.maximum(mtx_2)
+            res.data = max_val - res.data
+            return res
+
+        return self.get_coo_matrix()
+
     def get_dists(self):
         """Return the stored distances after a search"""
         return self.index.getResultDists()
